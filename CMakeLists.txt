@@ -4,6 +4,7 @@ project(chess_vision LANGUAGES CUDA CXX)
 set_property(GLOBAL PROPERTY USE_FOLDERS ON)
 
 set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
+set(OpenCV_DIR "C:/opencv/build/x64/vc16/lib")
 
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -24,6 +25,25 @@ if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 endif()
 
 find_package(OpenGL REQUIRED)
+find_package(OpenCV REQUIRED)
+find_package(CUDA REQUIRED)
+
+# TensorRT configuration
+set(TensorRT_DIR "C:/Program Files/NVIDIA GPU Computing Toolkit/TensorRT" CACHE PATH "Path to TensorRT")
+include_directories("${TensorRT_DIR}/include")
+link_directories("${TensorRT_DIR}/lib")
+
+if(OpenCV_FOUND)
+    message(STATUS "OpenCV library status:")
+    message(STATUS "    version: ${OpenCV_VERSION}")
+    message(STATUS "    libraries: ${OpenCV_LIBS}")
+    message(STATUS "    include path: ${OpenCV_INCLUDE_DIRS}")
+else()
+    message(FATAL_ERROR "OpenCV not found. Please check OpenCV_DIR.")
+endif()
+
+# Include OpenCV headers
+include_directories(${OpenCV_INCLUDE_DIRS})
 
 if(UNIX)
     include_directories("${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}")
@@ -50,19 +70,16 @@ set(GLM_ROOT_DIR "${CMAKE_SOURCE_DIR}/external")
 find_package(GLM REQUIRED)
 include_directories(${GLM_INCLUDE_DIRS})
 
-# set(headers
-#     src/cudaMat4.hpp
-#     src/glslUtility.hpp
-#     src/kernel.h
-#     src/main.hpp
-#     src/utilityCore.hpp
-#     )
+set(headers
+    src/main.hpp
+    )
 
 set(sources
     src/main.cpp
+    src/cuda_kernel.cu
     )
 
-# list(SORT headers)
+list(SORT headers)
 list(SORT sources)
 
 source_group(Headers FILES ${headers})
@@ -80,10 +97,10 @@ endif()
 target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE "$<$<AND:$<CONFIG:Debug,RelWithDebInfo>,$<COMPILE_LANGUAGE:CUDA>>:-G>")
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${CMAKE_PROJECT_NAME})
 
-# add_custom_command(
-#     TARGET ${CMAKE_PROJECT_NAME}
-#     PRE_BUILD
-#     COMMAND ${CMAKE_COMMAND} -E copy_directory
-#         ${CMAKE_SOURCE_DIR}/shaders
-#         ${CMAKE_BINARY_DIR}/shaders
-#     )
+add_custom_command(
+    TARGET ${CMAKE_PROJECT_NAME}
+    PRE_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/shaders
+        ${CMAKE_BINARY_DIR}/shaders
+    )
