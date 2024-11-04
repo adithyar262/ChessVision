@@ -69,6 +69,8 @@ endif(UNIX)
 set(GLM_ROOT_DIR "${CMAKE_SOURCE_DIR}/external")
 find_package(GLM REQUIRED)
 include_directories(${GLM_INCLUDE_DIRS})
+set(STB_ROOT_DIR "${CMAKE_SOURCE_DIR}/external/include/stb")
+include_directories(${STB_ROOT_DIR})
 
 set(headers
     src/main.hpp

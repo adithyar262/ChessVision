@@ -1,5 +1,4 @@
 #include "cuda_kernel.h"
-#include <cuda_runtime.h>
 
 __global__ void generateChessboard(unsigned char* buffer, int width, int height) {
     int x = blockIdx.x * blockDim.x + threadIdx.x;

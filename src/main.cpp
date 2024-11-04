@@ -8,6 +8,9 @@
 #include <string>
 #include "cuda_kernel.h"
 
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb_image.h"
+
 // Function to read shader files
 std::string readShaderFile(const char* filePath) {
     std::ifstream shaderFile(filePath);
@@ -44,7 +47,12 @@ int main() {
         return -1;
     }
 
-    // Create a windowed mode window and its OpenGL context
+    // Set OpenGL version and profile
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    // Create window
     GLFWwindow* window = glfwCreateWindow(800, 800, "CUDA Chessboard", NULL, NULL);
     if (!window) {
         std::cerr << "Failed to create GLFW window" << std::endl;
@@ -60,21 +68,20 @@ int main() {
         return -1;
     }
 
-    // Read shader files
+    // Read and compile shaders
     std::string vertexShaderSource = readShaderFile("shaders/vertex.glsl");
     std::string fragmentShaderSource = readShaderFile("shaders/fragment.glsl");
 
-    // Compile shaders
     GLuint vertexShader = compileShader(GL_VERTEX_SHADER, vertexShaderSource.c_str());
     GLuint fragmentShader = compileShader(GL_FRAGMENT_SHADER, fragmentShaderSource.c_str());
 
-    // Create shader program
+    // Create and link shader program
     GLuint shaderProgram = glCreateProgram();
     glAttachShader(shaderProgram, vertexShader);
     glAttachShader(shaderProgram, fragmentShader);
     glLinkProgram(shaderProgram);
 
-    // Check for linking errors
+    // Check shader program linking
     GLint success;
     glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
     if (!success) {
@@ -84,57 +91,67 @@ int main() {
         return -1;
     }
 
-    // Set up vertex data for a square
+    // Create vertex data for a quad using two triangles
     float vertices[] = {
-        // Position         // Texture coords
-        -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,  // Top-left
-        -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,  // Bottom-left
-         1.0f, -1.0f, 0.0f, 1.0f, 0.0f,  // Bottom-right
-        -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,  // Top-left
-         1.0f, -1.0f, 0.0f, 1.0f, 0.0f,  // Bottom-right
-         1.0f,  1.0f, 0.0f, 1.0f, 1.0f   // Top-right
+        // positions          // texture coords
+        -1.0f,  1.0f, 0.0f,  0.0f, 1.0f,
+         1.0f,  1.0f, 0.0f,  1.0f, 1.0f,
+         1.0f, -1.0f, 0.0f,  1.0f, 0.0f,
+
+        -1.0f,  1.0f, 0.0f,  0.0f, 1.0f,
+         1.0f, -1.0f, 0.0f,  1.0f, 0.0f,
+        -1.0f, -1.0f, 0.0f,  0.0f, 0.0f
     };
 
-    GLuint VBO, VAO;
+    // Create and bind VAO and VBO
+    GLuint VAO, VBO;
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
+
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+
+    // Set vertex attributes
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
-    // Create texture
+    // Load and create texture
     GLuint texture;
     glGenTextures(1, &texture);
     glBindTexture(GL_TEXTURE_2D, texture);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+
+    // Set texture parameters
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
-    // Generate chessboard texture using CUDA
-    const int texWidth = 512, texHeight = 512;
-    unsigned char* d_textureData;
-    cudaMalloc(&d_textureData, texWidth * texHeight * 4 * sizeof(unsigned char));
+    // Load image
+    stbi_set_flip_vertically_on_load(true);
+    int width, height, nrChannels;
+    unsigned char* data = stbi_load("../textures/board.png", &width, &height, &nrChannels, 0);
+    
+    if (data) {
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, 
+                     nrChannels == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+    } else {
+        std::cerr << "Failed to load texture" << std::endl;
+        return -1;
+    }
+    stbi_image_free(data);
 
-    dim3 blockSize(16, 16);
-    dim3 gridSize((texWidth + blockSize.x - 1) / blockSize.x, (texHeight + blockSize.y - 1) / blockSize.y);
-    // generateChessboard<<<gridSize, blockSize>>>(d_textureData, texWidth, texHeight);
-    generateChessBoardCaller(gridSize, blockSize, d_textureData, texWidth, texHeight);
+    // Enable blending for transparency
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    unsigned char* h_textureData = new unsigned char[texWidth * texHeight * 4];
-    cudaMemcpy(h_textureData, d_textureData, texWidth * texHeight * 4 * sizeof(unsigned char), cudaMemcpyDeviceToHost);
-
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texWidth, texHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, h_textureData);
-    glGenerateMipmap(GL_TEXTURE_2D);
-
-    // Main loop
+    // Render loop
     while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT);
-
+        
         glUseProgram(shaderProgram);
         glBindTexture(GL_TEXTURE_2D, texture);
         glBindVertexArray(VAO);
@@ -149,9 +166,7 @@ int main() {
     glDeleteBuffers(1, &VBO);
     glDeleteProgram(shaderProgram);
     glDeleteTextures(1, &texture);
-    cudaFree(d_textureData);
-    delete[] h_textureData;
-    glfwTerminate();
 
+    glfwTerminate();
     return 0;
 }
