@@ -20,7 +20,6 @@ endif()
 # Set a default build type if none was specified
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
     SET(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
-    # Set the possible values of build type for cmake-gui
     SET_PROPERTY(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
 endif()
 
@@ -42,7 +41,6 @@ else()
     message(FATAL_ERROR "OpenCV not found. Please check OpenCV_DIR.")
 endif()
 
-# Include OpenCV headers
 include_directories(${OpenCV_INCLUDE_DIRS})
 
 if(UNIX)
@@ -69,26 +67,30 @@ endif(UNIX)
 set(GLM_ROOT_DIR "${CMAKE_SOURCE_DIR}/external")
 find_package(GLM REQUIRED)
 include_directories(${GLM_INCLUDE_DIRS})
+
 set(STB_ROOT_DIR "${CMAKE_SOURCE_DIR}/external/include/stb")
 include_directories(${STB_ROOT_DIR})
 
-set(headers
+# Add include directories for our source files
+include_directories(
+    ${CMAKE_SOURCE_DIR}/src
+)
+
+set(ALL_HEADERS
     src/main.hpp
-    )
+)
 
-set(sources
+set(ALL_SOURCES
     src/main.cpp
-    src/cuda_kernel.cu
-    )
+)
 
-list(SORT headers)
-list(SORT sources)
+source_group("Source Files" FILES src/main.cpp)
 
-source_group(Headers FILES ${headers})
-source_group(Sources FILES ${sources})
-
-add_executable(${CMAKE_PROJECT_NAME} ${sources} ${headers})
+# Create executable
+add_executable(${CMAKE_PROJECT_NAME} ${ALL_HEADERS} ${ALL_SOURCES})
 target_link_libraries(${CMAKE_PROJECT_NAME} ${LIBRARIES})
+
+# CUDA architecture settings
 if(CMAKE_VERSION VERSION_LESS "3.23.0")
     set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES CUDA_ARCHITECTURES OFF)
 elseif(CMAKE_VERSION VERSION_LESS "3.24.0")
@@ -96,13 +98,27 @@ elseif(CMAKE_VERSION VERSION_LESS "3.24.0")
 else()
     set_target_properties(${CMAKE_PROJECT_NAME} PROPERTIES CUDA_ARCHITECTURES native)
 endif()
+
+# CUDA debug options
 target_compile_options(${CMAKE_PROJECT_NAME} PRIVATE "$<$<AND:$<CONFIG:Debug,RelWithDebInfo>,$<COMPILE_LANGUAGE:CUDA>>:-G>")
+
+# Set as startup project in Visual Studio
 set_property(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${CMAKE_PROJECT_NAME})
 
+# Copy shaders to build directory
 add_custom_command(
     TARGET ${CMAKE_PROJECT_NAME}
     PRE_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
         ${CMAKE_SOURCE_DIR}/shaders
-        ${CMAKE_BINARY_DIR}/shaders
-    )
+        ${CMAKE_BINARY_DIR}/bin/shaders
+)
+
+# Copy textures to build directory
+add_custom_command(
+    TARGET ${CMAKE_PROJECT_NAME}
+    PRE_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+        ${CMAKE_SOURCE_DIR}/textures
+        ${CMAKE_BINARY_DIR}/bin/textures
+)
