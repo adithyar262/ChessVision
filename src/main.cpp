@@ -6,6 +6,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include "cuda_kernel.h"
 
 // Function to read shader files
 std::string readShaderFile(const char* filePath) {
@@ -44,7 +45,7 @@ int main() {
     }
 
     // Create a windowed mode window and its OpenGL context
-    GLFWwindow* window = glfwCreateWindow(800, 600, "CUDA Triangle", NULL, NULL);
+    GLFWwindow* window = glfwCreateWindow(800, 800, "CUDA Chessboard", NULL, NULL);
     if (!window) {
         std::cerr << "Failed to create GLFW window" << std::endl;
         glfwTerminate();
@@ -83,11 +84,15 @@ int main() {
         return -1;
     }
 
-    // Set up vertex data
+    // Set up vertex data for a square
     float vertices[] = {
-        -0.5f, -0.5f, 0.0f,
-         0.5f, -0.5f, 0.0f,
-         0.0f,  0.5f, 0.0f
+        // Position         // Texture coords
+        -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,  // Top-left
+        -1.0f, -1.0f, 0.0f, 0.0f, 0.0f,  // Bottom-left
+         1.0f, -1.0f, 0.0f, 1.0f, 0.0f,  // Bottom-right
+        -1.0f,  1.0f, 0.0f, 0.0f, 1.0f,  // Top-left
+         1.0f, -1.0f, 0.0f, 1.0f, 0.0f,  // Bottom-right
+         1.0f,  1.0f, 0.0f, 1.0f, 1.0f   // Top-right
     };
 
     GLuint VBO, VAO;
@@ -96,16 +101,44 @@ int main() {
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
     glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glEnableVertexAttribArray(1);
+
+    // Create texture
+    GLuint texture;
+    glGenTextures(1, &texture);
+    glBindTexture(GL_TEXTURE_2D, texture);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    // Generate chessboard texture using CUDA
+    const int texWidth = 512, texHeight = 512;
+    unsigned char* d_textureData;
+    cudaMalloc(&d_textureData, texWidth * texHeight * 4 * sizeof(unsigned char));
+
+    dim3 blockSize(16, 16);
+    dim3 gridSize((texWidth + blockSize.x - 1) / blockSize.x, (texHeight + blockSize.y - 1) / blockSize.y);
+    // generateChessboard<<<gridSize, blockSize>>>(d_textureData, texWidth, texHeight);
+    generateChessBoardCaller(gridSize, blockSize, d_textureData, texWidth, texHeight);
+
+    unsigned char* h_textureData = new unsigned char[texWidth * texHeight * 4];
+    cudaMemcpy(h_textureData, d_textureData, texWidth * texHeight * 4 * sizeof(unsigned char), cudaMemcpyDeviceToHost);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texWidth, texHeight, 0, GL_RGBA, GL_UNSIGNED_BYTE, h_textureData);
+    glGenerateMipmap(GL_TEXTURE_2D);
 
     // Main loop
     while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT);
 
         glUseProgram(shaderProgram);
+        glBindTexture(GL_TEXTURE_2D, texture);
         glBindVertexArray(VAO);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
 
         glfwSwapBuffers(window);
         glfwPollEvents();
@@ -115,6 +148,9 @@ int main() {
     glDeleteVertexArrays(1, &VAO);
     glDeleteBuffers(1, &VBO);
     glDeleteProgram(shaderProgram);
+    glDeleteTextures(1, &texture);
+    cudaFree(d_textureData);
+    delete[] h_textureData;
     glfwTerminate();
 
     return 0;
