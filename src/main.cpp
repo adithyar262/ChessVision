@@ -6,6 +6,7 @@
 #include <fstream>
 #include <sstream>
 #include <string>
+#include <vector>
 #include "cuda_kernel.h"
 
 #include "main.hpp"
@@ -90,6 +91,8 @@ Texture::Texture(const char* path) {
     stbi_set_flip_vertically_on_load(true);
     int width, height, nrChannels;
     unsigned char* data = stbi_load(path, &width, &height, &nrChannels, 0);
+
+    std::cout<<"Path - "<<path<<" Width - "<<width<< " Height - "<<height<<" nrChannels - "<<nrChannels<<std::endl;
     
     if (data) {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
@@ -105,31 +108,52 @@ void Texture::bind() {
 }
 
 Renderer::Renderer() {
-    float vertices[] = {
-        -1.0f,  1.0f, 0.0f,  0.0f, 1.0f,
-            1.0f,  1.0f, 0.0f,  1.0f, 1.0f,
-            1.0f, -1.0f, 0.0f,  1.0f, 0.0f,
-        -1.0f,  1.0f, 0.0f,  0.0f, 1.0f,
-            1.0f, -1.0f, 0.0f,  1.0f, 0.0f,
-        -1.0f, -1.0f, 0.0f,  0.0f, 0.0f
-    };
+    const float step = 1.0f / 8.0f;
+    const int gridSize = 8;
+    const int verticesPerSquare = 6;
+    const int componentsPerVertex = 5;
+    const int totalVertices = gridSize * gridSize * verticesPerSquare;
+
+    float v1[totalVertices * componentsPerVertex];
+
+    for (int row = 0; row < gridSize; ++row) {
+        for (int col = 0; col < gridSize; ++col) {
+            float x1 = -1.0f + (col * 2 * step);
+            float x2 = x1 + 2 * step;
+            float y1 = -1.0f + (row * 2 * step);
+            float y2 = y1 + 2 * step;
+
+            int baseIndex = (row * gridSize + col) * verticesPerSquare * componentsPerVertex;
+
+            // First triangle
+            v1[baseIndex     ] = x1; v1[baseIndex + 1] = y2; v1[baseIndex + 2] = 0.0f; v1[baseIndex + 3] = col * step; v1[baseIndex + 4] = (row + 1) * step;
+            v1[baseIndex + 5 ] = x2; v1[baseIndex + 6] = y2; v1[baseIndex + 7] = 0.0f; v1[baseIndex + 8] = (col + 1) * step; v1[baseIndex + 9] = (row + 1) * step;
+            v1[baseIndex + 10] = x2; v1[baseIndex + 11] = y1; v1[baseIndex + 12] = 0.0f; v1[baseIndex + 13] = (col + 1) * step; v1[baseIndex + 14] = row * step;
+
+            // Second triangle
+            v1[baseIndex + 15] = x1; v1[baseIndex + 16] = y2; v1[baseIndex + 17] = 0.0f; v1[baseIndex + 18] = col * step; v1[baseIndex + 19] = (row + 1) * step;
+            v1[baseIndex + 20] = x2; v1[baseIndex + 21] = y1; v1[baseIndex + 22] = 0.0f; v1[baseIndex + 23] = (col + 1) * step; v1[baseIndex + 24] = row * step;
+            v1[baseIndex + 25] = x1; v1[baseIndex + 26] = y1; v1[baseIndex + 27] = 0.0f; v1[baseIndex + 28] = col * step; v1[baseIndex + 29] = row * step;
+        }
+    }
 
     glGenVertexArrays(1, &VAO);
     glGenBuffers(1, &VBO);
 
     glBindVertexArray(VAO);
     glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(v1), v1, GL_STATIC_DRAW);
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
+
 }
 
 void Renderer::draw() {
     glBindVertexArray(VAO);
-    glDrawArrays(GL_TRIANGLES, 0, 6);
+    glDrawArrays(GL_TRIANGLES, 0, 6*64);
 }
 
 Renderer::~Renderer() {
@@ -163,7 +187,7 @@ int main() {
 
     Shader shader("../shaders/vertex.glsl", "../shaders/fragment.glsl");
     Texture texture("../textures/board.png");
-    Texture overlayTexture("../textures/pieces1.png");
+    Texture overlayTexture("../textures/pieces2.png");
     Renderer renderer;
 
     glEnable(GL_BLEND);
