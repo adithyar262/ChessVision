@@ -92,8 +92,7 @@ Texture::Texture(const char* path) {
     unsigned char* data = stbi_load(path, &width, &height, &nrChannels, 0);
     
     if (data) {
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, 
-                        nrChannels == 4 ? GL_RGBA : GL_RGB, GL_UNSIGNED_BYTE, data);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
         glGenerateMipmap(GL_TEXTURE_2D);
     } else {
         std::cerr << "Failed to load texture" << std::endl;
@@ -162,8 +161,9 @@ int main() {
         return -1;
     }
 
-    Shader shader("shaders/vertex.glsl", "shaders/fragment.glsl");
+    Shader shader("../shaders/vertex.glsl", "../shaders/fragment.glsl");
     Texture texture("../textures/board.png");
+    Texture overlayTexture("../textures/pieces1.png");
     Renderer renderer;
 
     glEnable(GL_BLEND);
@@ -173,7 +173,13 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT);
         
         shader.use();
+        glActiveTexture(GL_TEXTURE0);
         texture.bind();
+        glUniform1i(glGetUniformLocation(shader.ID, "boardTexture"), 0);
+
+        glActiveTexture(GL_TEXTURE1);
+        overlayTexture.bind();
+        glUniform1i(glGetUniformLocation(shader.ID, "overlayTexture"), 1);
         renderer.draw();
 
         glfwSwapBuffers(window);
