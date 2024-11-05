@@ -187,7 +187,7 @@ int main() {
 
     Shader shader("../shaders/vertex.glsl", "../shaders/fragment.glsl");
     Texture texture("../textures/board.png");
-    Texture overlayTexture("../textures/pieces2.png");
+    Texture overlayTexture("../textures/pieces.png");
     Renderer renderer;
 
     glEnable(GL_BLEND);
