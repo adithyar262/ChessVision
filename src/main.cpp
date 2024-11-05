@@ -107,6 +107,46 @@ void Texture::bind() {
     glBindTexture(GL_TEXTURE_2D, ID);
 }
 
+std::vector<std::vector<char>> parseFEN(const std::string& fen) {
+    std::vector<std::vector<char>> board(8, std::vector<char>(8, ' '));
+    int row = 0, col = 0;  // Start from the bottom row
+    
+    for (char c : fen) {
+        if (c == '/') {
+            // row++;
+            col = 0;
+        } else if (c >= '1' && c <= '8') {
+            col += c - '0';
+        } else if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z')) {
+            if (row >= 0 && row < 8 && col >= 0 && col < 8) {
+                board[row][col] = c;
+            }
+            col++;
+        }
+        if (col >= 8) {
+            row++;
+            col = 0;
+        }
+        if (row >= 8) break;
+    }
+    return board;
+}
+
+
+void Renderer::updateBoard(const std::string& fen) {
+    board = parseFEN(fen);
+    // Debug print
+    std::cout << "Current board state:" << std::endl;
+    for (int row = 7; row >= 0; --row) {
+        for (int col = 0; col < 8; ++col) {
+            std::cout << (board[row][col] == ' ' ? '.' : board[row][col]) << ' ';
+        }
+        std::cout << std::endl;
+    }
+    std::cout << std::endl;
+}
+
+
 Renderer::Renderer() {
     const float step = 1.0f / 8.0f;
     const int gridSize = 8;
@@ -149,6 +189,8 @@ Renderer::Renderer() {
     glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
     glEnableVertexAttribArray(1);
 
+    // Initialize the board with empty squares
+    board = std::vector<std::vector<char>>(8, std::vector<char>(8, ' '));
 }
 
 void Renderer::draw() {
@@ -189,9 +231,22 @@ int main() {
     Texture texture("../textures/board.png");
     Texture overlayTexture("../textures/pieces.png");
     Renderer renderer;
+    std::string fen = "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R";
 
+    /*
+    Openng position: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR"
+    Middle game position: "r1bqkb1r/pppp1ppp/2n2n2/4p3/2B1P3/5N2/PPPP1PPP/RNBQK2R"
+    End game position: "4k3/8/8/8/8/8/4P3/4K3"
+    */
+
+    renderer.updateBoard(fen);
+
+    glEnable(GL_TEXTURE_2D);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    std::vector<float> piecePositions(128, -1.0f);
+    GLint piecePositionsLoc = glGetUniformLocation(shader.ID, "piecePositions");
 
     while (!glfwWindowShouldClose(window)) {
         glClear(GL_COLOR_BUFFER_BIT);
@@ -204,6 +259,22 @@ int main() {
         glActiveTexture(GL_TEXTURE1);
         overlayTexture.bind();
         glUniform1i(glGetUniformLocation(shader.ID, "overlayTexture"), 1);
+        
+        for (int row = 0; row < 8; ++row) {
+            for (int col = 0; col < 8; ++col) {
+                char piece = renderer.board[row][col];
+                int index = row * 8 + col;
+                if (piece != ' ' && pieceToTexture.find(piece) != pieceToTexture.end()) {
+                    piecePositions[index * 2] = pieceToTexture[piece].u;
+                    piecePositions[index * 2 + 1] = pieceToTexture[piece].v;
+                } else {
+                    piecePositions[index * 2] = -1.0f;
+                    piecePositions[index * 2 + 1] = -1.0f;
+                }
+            }
+        }
+        glUniform2fv(piecePositionsLoc, 64, piecePositions.data());
+        
         renderer.draw();
 
         glfwSwapBuffers(window);
