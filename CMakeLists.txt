@@ -77,14 +77,20 @@ include_directories(
 )
 
 set(ALL_HEADERS
-    src/main.hpp
+    src/shader.hpp
+    src/texture.hpp
+    src/renderer.hpp
 )
 
 set(ALL_SOURCES
     src/main.cpp
+    src/shader.cpp
+    src/texture.cpp
+    src/renderer.cpp
 )
 
-source_group("Source Files" FILES src/main.cpp)
+source_group("Header Files" FILES ${ALL_HEADERS})
+source_group("Source Files" FILES ${ALL_SOURCES})
 
 # Create executable
 add_executable(${CMAKE_PROJECT_NAME} ${ALL_HEADERS} ${ALL_SOURCES})
