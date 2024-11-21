@@ -14,21 +14,28 @@ if not cap.isOpened():
 
 last_saved_time = time.time()
 
-while True:
-    ret, frame = cap.read()
-    if not ret:
-        print("Can't receive frame. Exiting ...")
-        break
-    cv2.imshow('frame', frame)
-    
-    current_time = time.time()
-    if current_time - last_saved_time > 3:
-        img_path = os.path.join(img_folder, f'frame_{int(current_time)}.jpg')
-        cv2.imwrite(img_path, frame)
-        last_saved_time = current_time
+try:
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Can't receive frame. Exiting ...")
+            break
+        cv2.imshow('frame', frame)
+        
+        current_time = time.time()
+        if current_time - last_saved_time > 3:
+            img_path = os.path.join(img_folder, f'frame_{int(current_time)}.jpg')
+            cv2.imwrite(img_path, frame)
+            last_saved_time = current_time
 
-    if cv2.waitKey(1) == ord('q'):
-        break
+        if cv2.waitKey(1) == ord('q'):
+            print("Exiting program...")
+            break
 
-cap.release()
-cv2.destroyAllWindows()
+except KeyboardInterrupt:
+    print("Keyboard interrupt detected. Exiting program...")
+
+finally:
+    cap.release()
+    cv2.destroyAllWindows()
+    print("Resources released and windows closed.")
