@@ -4,6 +4,7 @@ Chess Vision is a project that aims to build a chessboard recognition framework 
 
 ## Milestone Presentations
 - [Milestone 1](https://docs.google.com/presentation/d/1U8ps8ubOPQaQodlSa4sc5Am6RymVd1RFZkvMr81juZM/edit?usp=sharing)
+- [Milestone 2](https://docs.google.com/presentation/d/1VHaGN9LacqWEvyHqry0u9dCRp4Tq3KSkKzSpWPdE-mc/edit?usp=sharing)
 
 ## Reference
 - LiveChess2FEN (Original Project): [Link](https://developer.nvidia.com/blog/jetson-project-of-the-month-livechess2fen-provides-real-time-game-analysis/)
