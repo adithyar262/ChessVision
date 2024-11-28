@@ -40,7 +40,7 @@ def train_chesspiece_model():
 
     callbacks = model_callbacks(
         early_stopping_patience=5,
-        model_checkpoint_path="./models/ResNet152V2_pre.h5",
+        model_checkpoint_path="./models/ResNet152V2_pre.keras",
         reducelr_factor=0.1,
         reducelr_patience=5,
         tensorboard_log_dir="./logs/pretraining",
@@ -80,7 +80,7 @@ def train_chesspiece_model():
 
     callbacks = model_callbacks(
         early_stopping_patience=10,
-        model_checkpoint_path="./models/ResNet152V2.h5",
+        model_checkpoint_path="./models/ResNet152V2.keras",
         reducelr_factor=0.5,
         reducelr_patience=5,
         tensorboard_log_dir="./logs/fine_tuning",
@@ -101,12 +101,12 @@ def train_chesspiece_model():
     )
     evaluate_model(model, validation_generator)
 
-    model.save("./models/ResNet152V2_last.h5")
+    model.save("./models/ResNet152V2_last.keras")
 
 
 def continue_training():
     """Continue training chess-piece model based on ResNet152V2."""
-    model = load_model("./models/ResNet152V2_last.h5")
+    model = load_model("./models/ResNet152V2_last.keras")
 
     train_generator, validation_generator = data_generators(
         preprocess_input, (224, 224), 32
@@ -125,7 +125,7 @@ def continue_training():
 
     callbacks = model_callbacks(
         early_stopping_patience=15,
-        model_checkpoint_path="./models/ResNet152V2_all.h5",
+        model_checkpoint_path="./models/ResNet152V2_all.keras",
         reducelr_factor=0.5,
         reducelr_patience=5,
         tensorboard_log_dir="./logs/full_training",
@@ -148,7 +148,7 @@ def continue_training():
     )
     evaluate_model(model, validation_generator)
 
-    model.save("./models/ResNet152V2_all_last.h5")
+    model.save("./models/ResNet152V2_all_last.keras")
 
 
 if __name__ == "__main__":

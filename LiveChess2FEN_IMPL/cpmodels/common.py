@@ -2,9 +2,8 @@ import math
 from typing import List
 
 import tensorflow as tf
-from keras.api.preprocessing.image import ImageDataGenerator
-from keras.api.preprocessing.image import Iterator
-from keras.api.utils import Sequence
+from keras.api import layers, Sequential
+from keras.api.utils import Sequence, image_dataset_from_directory
 import numpy as np
 
 import matplotlib
@@ -23,7 +22,6 @@ from keras.api.layers import (
     concatenate,
     GlobalMaxPooling2D,
 )
-from keras.api.optimizers import Adam
 
 def build_model(base_model: Model) -> Model:
     """
@@ -71,69 +69,66 @@ def data_generators(
     :return: Train and validation generators.
     """
 
-    # Data augmentation for training data
-    train_datagen = ImageDataGenerator(
-        preprocessing_function=preprocessing_func,
-        rotation_range=20,  # Randomly rotate images by 0 to 20 degrees
-        width_shift_range=0.2,  # Shift images horizontally by 0 to 20% of width
-        height_shift_range=0.2,  # Shift images vertically by 0 to 20% of height
-        shear_range=0.15,  # Shear transformation
-        zoom_range=0.15,  # Zoom in or out by 0 to 15%
-        horizontal_flip=True,  # Randomly flip images horizontally
-        fill_mode="nearest",  # Fill pixels after rotation or shift
-        dtype="float32"
-    )
-
-    train_gen = train_datagen.flow_from_directory(
+    # Create training dataset
+    train_ds = image_dataset_from_directory(
         train_path,
-        target_size=target_size,
-        color_mode="rgb",
+        labels='inferred',
+        label_mode='categorical',
         batch_size=batch_size,
-        class_mode="categorical",
+        image_size=target_size,
         shuffle=True,
+        seed=123,
     )
 
-    # No augmentation for validation data
-    val_datagen = ImageDataGenerator(
-        preprocessing_function=preprocessing_func,
-        dtype="float32"
-    )
-
-    val_gen = val_datagen.flow_from_directory(
+    # Create validation dataset
+    val_ds = image_dataset_from_directory(
         validation_path,
-        target_size=target_size,
-        color_mode="rgb",
+        labels='inferred',
+        label_mode='categorical',
         batch_size=batch_size,
-        class_mode="categorical",
+        image_size=target_size,
         shuffle=False,
     )
 
-    return train_gen, val_gen
+    # Apply preprocessing function
+    train_ds = train_ds.map(lambda x, y: (preprocessing_func(x), y))
+    val_ds = val_ds.map(lambda x, y: (preprocessing_func(x), y))
+
+    # Define data augmentation pipeline
+    data_augmentation = Sequential([
+        layers.RandomRotation(0.2),
+        layers.RandomTranslation(0.2, 0.2),
+        layers.RandomZoom(0.15),
+        layers.RandomFlip("horizontal"),
+    ])
+
+    # Apply data augmentation to the training dataset
+    train_ds = train_ds.map(lambda x, y: (data_augmentation(x, training=True), y),
+                            num_parallel_calls=tf.data.AUTOTUNE)
+
+    # Prefetch datasets for performance
+    train_ds = train_ds.prefetch(buffer_size=tf.data.AUTOTUNE)
+    val_ds = val_ds.prefetch(buffer_size=tf.data.AUTOTUNE)
+
+    return train_ds, val_ds
 
 
 def train_model(
-        model,
-        epochs,
-        train_generator,
-        validation_generator,
-        callbacks,
-        use_weights=False,
-        class_weights=None,
-        workers=5,
+    model,
+    epochs,
+    train_generator,
+    validation_generator,
+    callbacks,
+    use_weights=False,
+    class_weights=None,
+    workers=5,
 ):
     """Train the model."""
-    steps_per_epoch = math.ceil(train_generator.samples / train_generator.batch_size)
-    validation_steps = math.ceil(validation_generator.samples / validation_generator.batch_size)
-
     history = model.fit(
         train_generator,
-        steps_per_epoch=steps_per_epoch,
         validation_data=validation_generator,
-        validation_steps=validation_steps,
         epochs=epochs,
         callbacks=callbacks,
-        use_multiprocessing=False,
-        workers=workers,
         class_weight=class_weights if use_weights else None,
     )
     return history
