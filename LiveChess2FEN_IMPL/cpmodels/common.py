@@ -1,15 +1,21 @@
 import math
 from typing import List
 
+import tensorflow as tf
+from keras.api.preprocessing.image import ImageDataGenerator
+from keras.api.preprocessing.image import Iterator
+from keras.api.utils import Sequence
+import numpy as np
+
 import matplotlib
 
 matplotlib.use("agg")
 import matplotlib.pyplot as plt
 
 import os
-from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, TensorBoard
-from keras.models import Model
-from keras.layers import (
+from keras.api.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, TensorBoard
+from keras.api.models import Model
+from keras.api.layers import (
     GlobalAveragePooling2D,
     Dense,
     Dropout,
@@ -17,9 +23,7 @@ from keras.layers import (
     concatenate,
     GlobalMaxPooling2D,
 )
-from keras.optimizers import Adam
-from keras.preprocessing.image import ImageDataGenerator
-
+from keras.api.optimizers import Adam
 
 def build_model(base_model: Model) -> Model:
     """
@@ -128,7 +132,7 @@ def train_model(
         validation_steps=validation_steps,
         epochs=epochs,
         callbacks=callbacks,
-        use_multiprocessing=True,
+        use_multiprocessing=False,
         workers=workers,
         class_weight=class_weights if use_weights else None,
     )
