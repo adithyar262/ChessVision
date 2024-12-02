@@ -62,6 +62,8 @@ else(UNIX)
     add_definitions(${GLEW_DEFINITIONS})
     include_directories(${GLEW_INCLUDE_DIR} ${GLFW_INCLUDE_DIR})
     set(LIBRARIES ${GLEW_LIBRARY} ${GLFW_LIBRARY} ${OPENGL_LIBRARY})
+
+    set(LIBRARIES ${LIBRARIES} ws2_32)
 endif(UNIX)
 
 set(GLM_ROOT_DIR "${CMAKE_SOURCE_DIR}/external")
@@ -94,7 +96,7 @@ source_group("Source Files" FILES ${ALL_SOURCES})
 
 # Create executable
 add_executable(${CMAKE_PROJECT_NAME} ${ALL_HEADERS} ${ALL_SOURCES})
-target_link_libraries(${CMAKE_PROJECT_NAME} ${LIBRARIES})
+target_link_libraries(${CMAKE_PROJECT_NAME} ${LIBRARIES} ${OpenCV_LIBS})
 
 # CUDA architecture settings
 if(CMAKE_VERSION VERSION_LESS "3.23.0")
