@@ -24,21 +24,18 @@ def image_resize(img: np.ndarray, target_area: int = 250000) -> tuple[ndarray | 
     return resized_img, shape, scale
 
 
-def image_transform(img: np.ndarray, points):
+def image_transform(img: np.ndarray, points, output_size=(1200, 1200), border=0):
     """Crop original image using perspective warp."""
-    board_length = 1200
-
+    # Include the border in the destination points
     pts1 = np.float32(points)
-    pts2 = np.float32(
-        [
-            [0, 0],
-            [board_length, 0],
-            [board_length, board_length],
-            [0, board_length],
-        ]
-    )
+    pts2 = np.float32([
+        [border, border],  # Top-left corner with border
+        [output_size[0] - border, border],  # Top-right corner with border
+        [output_size[0] - border, output_size[1] - border],  # Bottom-right corner
+        [border, output_size[1] - border]  # Bottom-left corner
+    ])
     mat = cv2.getPerspectiveTransform(pts1, pts2)
-    return cv2.warpPerspective(img, mat, (board_length, board_length))
+    return cv2.warpPerspective(img, mat, output_size)
 
 
 class ImageObject:

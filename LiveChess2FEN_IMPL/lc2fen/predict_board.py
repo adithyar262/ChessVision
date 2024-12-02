@@ -1,7 +1,7 @@
 import shutil
 import glob
 from typing import Tuple, Any
-from typing import List
+from typing import List, Dict
 
 import numpy as np
 import cv2
@@ -14,6 +14,7 @@ from keras.api.utils import load_img, img_to_array
 from lc2fen.detectboard.detect_board import detect, compute_corners
 from lc2fen.split_board import split_board_image_trivial
 from lc2fen.infer_pieces import infer_chess_pieces
+from ultralytics import YOLO
 
 from lc2fen.fen import (
     list_to_board,
@@ -303,27 +304,60 @@ def detect_input_board(board_path: str, board_corners: (list[list[int]] | None) 
     input_image = cv2.imread(board_path)
 
     # Perform board detection and correction
-    image_object = detect(input_image, "images/tmp/output_board.jpg", board_corners)
+    image_object = detect(input_image, None, board_corners)
     board_corners, corrected_board_image = compute_corners(image_object)
+
+    # Save the corrected board image with border
+    cv2.imwrite("images/tmp/output_board.jpg", corrected_board_image)
 
     return board_corners, corrected_board_image
 
 
-def split_board_image_in_memory(board_image: np.ndarray) -> List[np.ndarray]:
-    # Assumes board_image is already the corrected and cropped board image
+def split_board_image_in_memory(board_image: np.ndarray, margin: int = 20, board_margin: int = 10) -> List[np.ndarray]:
     squares = []
     board_size = board_image.shape[0]  # Assuming square image
-    square_size = board_size // 8
+    inner_board_size = board_size - 2 * board_margin  # Size of the actual chessboard without the board margin
+    square_size = inner_board_size // 8
 
     for row in range(8):
         for col in range(8):
-            y_start = row * square_size
-            y_end = y_start + square_size
-            x_start = col * square_size
-            x_end = x_start + square_size
+            # Calculate the original square position within the inner board (without extra margin)
+            y_center = board_margin + (row + 0.5) * square_size
+            x_center = board_margin + (col + 0.5) * square_size
+
+            # Add margins conditionally
+            y_start = y_center - square_size // 2 - (margin if row > 0 else 0)
+            y_end = y_center + square_size // 2 + (margin if row < 7 else 0)
+            x_start = x_center - square_size // 2 - (margin if col > 0 else 0)
+            x_end = x_center + square_size // 2 + (margin if col < 7 else 0)
+
+            # Ensure indices stay within bounds
+            y_start = max(int(y_start), 0)
+            y_end = min(int(y_end), board_size)
+            x_start = max(int(x_start), 0)
+            x_end = min(int(x_end), board_size)
+
+            # Crop the square and append to the list
             square = board_image[y_start:y_end, x_start:x_end]
             squares.append(square)
     return squares
+
+
+# def split_board_image_in_memory(board_image: np.ndarray) -> List[np.ndarray]:
+#     # Assumes board_image is already the corrected and cropped board image
+#     squares = []
+#     board_size = board_image.shape[0]  # Assuming square image
+#     square_size = board_size // 8
+#
+#     for row in range(8):
+#         for col in range(8):
+#             y_start = row * square_size
+#             y_end = y_start + square_size
+#             x_start = col * square_size
+#             x_end = x_start + square_size
+#             square = board_image[y_start:y_end, x_start:x_end]
+#             squares.append(square)
+#     return squares
 
 
 def check_validity_of_fen(fen: str) -> bool:
@@ -386,3 +420,193 @@ def continuous_predictions(
 
         if not processed_board:
             time.sleep(0.1)
+
+
+###### DETECTION MODEL ######
+
+
+def visualize_detections(board_image: np.ndarray, detections: List[dict]) -> None:
+    for detection in detections:
+        x_min, y_min, x_max, y_max = detection['bbox']
+        confidence = detection['confidence']
+        class_id = detection['class_id']
+
+        # Draw the bounding box
+        cv2.rectangle(
+            board_image,
+            (x_min, y_min),
+            (x_max, y_max),
+            (0, 255, 0), 2
+        )
+
+        # Put the class ID and confidence
+        cv2.putText(
+            board_image,
+            f"ID: {class_id} ({confidence:.2f})",
+            (x_min, y_min - 10),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.5,
+            (0, 255, 0),
+            1
+        )
+
+    # Display the image with detections
+    cv2.imshow("Detections", board_image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+def detect_pieces_in_board(board_image: np.ndarray, model):
+    # Convert the image to RGB format as required by the model
+    board_image_rgb = cv2.cvtColor(board_image, cv2.COLOR_BGR2RGB)
+
+    # Perform inference
+    results = model.predict(board_image_rgb)
+    print(results)
+
+    # Process the results
+    detections = []
+    for result in results:
+        boxes = result.boxes  # Get the bounding boxes
+        for box in boxes:
+            # Extract coordinates and other information
+            x_min, y_min, x_max, y_max = box.xyxy[0].cpu().numpy()
+            confidence = box.conf.cpu().numpy()
+            class_id = box.cls.cpu().numpy()
+
+            detection = {
+                'bbox': [int(x_min), int(y_min), int(x_max), int(y_max)],
+                'confidence': float(confidence),
+                'class_id': int(class_id)
+            }
+            detections.append(detection)
+
+    return detections
+
+
+def crop_detected_pieces(board_image: np.ndarray, detections: List[dict]):
+    cropped_pieces = []
+    for detection in detections:
+        x_min, y_min, x_max, y_max = detection['bbox']
+        cropped_piece = board_image[y_min:y_max, x_min:x_max]
+        cropped_pieces.append((cropped_piece, detection['bbox']))
+
+    return cropped_pieces
+
+
+def map_pieces_to_squares(
+    cropped_pieces: List[Tuple[np.ndarray, Tuple[int, int, int, int]]],
+    square_grid: List[Tuple[int, int, int, int]]
+) -> Dict[int, np.ndarray]:
+    square_piece_map = {}
+    for piece_image, (x_min, y_min, x_max, y_max) in cropped_pieces:
+        # Calculate the center of the piece
+        x_center = (x_min + x_max) // 2
+        y_center = (y_min + y_max) // 2
+
+        # Find the square that contains the piece center
+        for idx, (sq_x_min, sq_y_min, sq_x_max, sq_y_max) in enumerate(square_grid):
+            if sq_x_min <= x_center < sq_x_max and sq_y_min <= y_center < sq_y_max:
+                square_piece_map[idx] = piece_image
+                break
+
+    return square_piece_map
+
+
+def generate_board_grid(board_image: np.ndarray) -> List[Tuple[int, int, int, int]]:
+    board_size = board_image.shape[0]  # Assuming a square image
+    square_size = board_size // 8
+    squares = []
+
+    for row in range(8):
+        for col in range(8):
+            x_start = col * square_size
+            y_start = row * square_size
+            x_end = x_start + square_size
+            y_end = y_start + square_size
+            squares.append((x_start, y_start, x_end, y_end))
+
+    return squares
+
+
+def obtain_piece_probs_for_detected_pieces(
+    square_piece_map: Dict[int, np.ndarray],
+    classification_model,
+    img_size: int,
+    pre_input
+) -> List[List[float]]:
+    # Initialize probabilities with zeros or default empty class probabilities
+    num_classes = classification_model.output_shape[-1]  # Adjust based on your model
+    empty_class_probs = [0.0] * num_classes  # Adjust if you have a specific index for empty squares
+    probs_with_no_indices = [empty_class_probs.copy() for _ in range(64)]
+
+    # Process only the squares that have detected pieces
+    if square_piece_map:
+        # Preprocess and prepare the batch input
+        piece_imgs = []
+        square_indices = []
+        for idx, piece_img in square_piece_map.items():
+            img = load_image(piece_img, img_size, pre_input)
+            piece_imgs.append(img)
+            square_indices.append(idx)
+
+        batch_input = np.array(piece_imgs).astype(np.float32)
+        print(batch_input.shape, batch_input)
+
+        # Run inference on the batch
+        predictions = classification_model.predict(batch_input)
+        predictions = predictions.tolist()
+
+        # Update the probabilities for the squares with detected pieces
+        for idx, probs in zip(square_indices, predictions):
+            probs_with_no_indices[idx] = probs
+
+    return probs_with_no_indices
+
+
+def predict_board_with_piece_detection(
+    model_path_pt: str,
+    model_path_keras: str,
+    img_size: int,
+    pre_input,
+    board_path: str,
+    a1_pos: str,
+    previous_fen: (str | None) = None,
+) -> Tuple[str, List[List[int]]]:
+    # classification_model = load_model(model_path_keras)
+    model = YOLO(model_path_pt)
+
+    # Read the board image
+    board_image = cv2.imread(board_path)
+
+    # Correct the board image (if necessary)
+    board_corners, corrected_board_image = detect_input_board(board_path)
+
+    # Generate the grid for the board squares
+    square_grid = generate_board_grid(corrected_board_image)
+
+    # Detect pieces in the board image
+    detections = detect_pieces_in_board(board_image, model)
+
+    # Visualize the detections
+    visualize_detections(board_image, detections)
+
+    # # Crop out the detected pieces
+    # cropped_pieces = crop_detected_pieces(board_image, detections)
+    #
+    # # Map the pieces to their corresponding squares
+    # square_piece_map = map_pieces_to_squares(cropped_pieces, square_grid)
+    #
+    # # Obtain predictions for the detected pieces
+    # probs_with_no_indices = obtain_piece_probs_for_detected_pieces(square_piece_map, classification_model, img_size, pre_input)
+    #
+    # # Continue with your existing inference logic
+    # predictions = infer_chess_pieces(
+    #     probs_with_no_indices, a1_pos, previous_fen
+    # )
+    #
+    # board = list_to_board(predictions)
+    # fen = board_to_fen(board)
+
+    return fen, board_corners
+

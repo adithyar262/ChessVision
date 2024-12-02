@@ -17,7 +17,7 @@ from lc2fen.detectboard.slid import slid
 from lc2fen.detectboard.image_object import image_transform
 
 
-def __original_points_coords(point_list):
+def __original_points_coords(point_list, border):
     """Detect the coordinates of the board in the original image.
 
     :param point_list: List of the relative points.
@@ -30,7 +30,12 @@ def __original_points_coords(point_list):
     chessboard squares as a pair of `board_corners` and
     `square_corners`.
     """
-    ptslims = np.float32([[0, 0], [1200, 0], [1200, 1200], [0, 1200]])
+    ptslims = np.float32([
+        [border, border],
+        [1200 - border, border],
+        [1200 - border, 1200 - border],
+        [border, 1200 - border]
+    ])
     last_index = len(point_list) - 1
 
     # Compute all the transformation matrices
@@ -64,11 +69,10 @@ def __original_points_coords(point_list):
     cv2.invert(last_transf_mat, last_transf_mat)
     transf_mat = transf_mat.dot(last_transf_mat)
 
-    # Generate the corners of the squares as if the board were of size
-    # 1200x1200
+    # Generate the corners of the squares with the new dimensions
     corners = []
-    for row_corner in range(0, 1200 + 150, 150):
-        for col_corner in range(0, 1200 + 150, 150):
+    for row_corner in range(0, 1200 + 2 * border + 150, 150):
+        for col_corner in range(0, 1200 + 2 * border + 150, 150):
             corners.append([row_corner, col_corner])
 
     # Transform the corners of the squares
@@ -120,19 +124,22 @@ def detect(
     for i in range(n_layers):
         __layer(image)
         debug.DebugImage(image["orig"]).save(f"end_iteration{i}")
-    cv2.imwrite(output_board, image["orig"])
+    # cv2.imwrite(output_board, image["orig"])
 
     return image
 
 
-def compute_corners(image_object):
+def compute_corners(image_object, border=10):
     board_corners, square_corners = __original_points_coords(
-        image_object.get_points()
+        image_object.get_points(), border=border
     )
+
+    # Adjust the output size to include the border
+    output_size = (1200 + 2 * border, 1200 + 2 * border)
 
     # Transform the original image using board_corners
     original_image = image_object.get_images()[0]["orig"]
-    corrected_board_image = image_transform(original_image, board_corners)
+    corrected_board_image = image_transform(original_image, board_corners, output_size, border)
 
     debug.DebugImage(original_image).points(
         square_corners, size=50, color=(0, 0, 255)

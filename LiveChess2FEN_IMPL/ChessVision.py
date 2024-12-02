@@ -6,31 +6,37 @@ from keras.api.applications.imagenet_utils import (
     preprocess_input as prein_squeezenet,
 )
 from keras.api.applications.efficientnet_v2 import preprocess_input as prein_efficientnet
+from keras.api.applications.resnet_v2 import preprocess_input as prein_resnet
+from keras.api.applications.xception import preprocess_input as prein_xception
 
 from lc2fen.predict_board import (
     predict_board_keras,
     predict_board_onnx,
     predict_board_trt,
+    predict_board_with_piece_detection
 )
 
 ACTIVATE_KERAS = False
-MODEL_PATH_KERAS = "data/models/EfficientNetB7.keras"
-IMG_SIZE_KERAS = 224
-PRE_INPUT_KERAS = prein_efficientnet
+MODEL_PATH_KERAS = "data/models/Xception_last.h5"
+IMG_SIZE_KERAS = 299
+PRE_INPUT_KERAS = prein_xception
 
 ACTIVATE_ONNX = False
-MODEL_PATH_ONNX = "data/models/EfficientNetB7.onnx"
-IMG_SIZE_ONNX = 224
-PRE_INPUT_ONNX = prein_efficientnet
+MODEL_PATH_ONNX = "data/models/Xception_last.onnx"
+IMG_SIZE_ONNX = 299
+PRE_INPUT_ONNX = prein_xception
 
 ACTIVATE_TRT = False
-MODEL_PATH_TRT = "data/models/EfficientNetB7.trt"
-IMG_SIZE_TRT = 224
-PRE_INPUT_TRT = prein_efficientnet
+MODEL_PATH_TRT = "data/models/Xception_last.trt"
+IMG_SIZE_TRT = 299
+PRE_INPUT_TRT = prein_xception
+
+ACTIVATE_PT = False
+MODEL_PATH_PT = "data/models/best.pt"
 
 
 def parse_arguments() -> tuple[str, str, str | None]:
-    global ACTIVATE_KERAS, ACTIVATE_ONNX, ACTIVATE_TRT
+    global ACTIVATE_KERAS, ACTIVATE_ONNX, ACTIVATE_TRT, ACTIVATE_PT
 
     parser = argparse.ArgumentParser(
         description="Predicts board configuration(s) (FEN string(s)) from "
@@ -65,6 +71,9 @@ def parse_arguments() -> tuple[str, str, str | None]:
     inf_engine.add_argument(
         "-t", "--trt", help="run inference using TensorRT", action="store_true"
     )
+    inf_engine.add_argument(
+        "-p", "--pt", help="run inference using PyTorch", action="store_true"
+    )
 
     args = parser.parse_args()
 
@@ -74,6 +83,8 @@ def parse_arguments() -> tuple[str, str, str | None]:
         ACTIVATE_ONNX = True
     elif args.trt:
         ACTIVATE_TRT = True
+    elif args.pt:
+        ACTIVATE_PT = True
     else:
         ValueError("No inference engine selected. This should be unreachable.")
 
@@ -107,6 +118,16 @@ def main():
             MODEL_PATH_TRT,
             IMG_SIZE_TRT,
             PRE_INPUT_TRT,
+            path,
+            a1_pos,
+            previous_fen=previous_fen,
+        )
+    elif ACTIVATE_PT:
+        fen, _ = predict_board_with_piece_detection(
+            MODEL_PATH_PT,
+            MODEL_PATH_KERAS,
+            IMG_SIZE_KERAS,
+            PRE_INPUT_KERAS,
             path,
             a1_pos,
             previous_fen=previous_fen,

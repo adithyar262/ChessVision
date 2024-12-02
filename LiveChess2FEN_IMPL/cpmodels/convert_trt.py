@@ -47,6 +47,6 @@ def build_engine(onnx_file_path, engine_file_path):
         print(f"TensorRT engine saved to {engine_file_path}")
 
 # Convert model
-onnx_model_path = "models/EfficientNetB7.onnx"
-engine_file_path = "models/EfficientNetB7.trt"
+onnx_model_path = "models/ResNet152V2.onnx"
+engine_file_path = "models/ResNet152V2.trt"
 build_engine(onnx_model_path, engine_file_path)
