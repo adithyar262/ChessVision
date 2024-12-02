@@ -17,19 +17,19 @@ from lc2fen.predict_board import (
 )
 
 ACTIVATE_KERAS = False
-MODEL_PATH_KERAS = "data/models/Xception_last.h5"
-IMG_SIZE_KERAS = 299
-PRE_INPUT_KERAS = prein_xception
+MODEL_PATH_KERAS = "data/models/ResNet152V2.keras"
+IMG_SIZE_KERAS = 224
+PRE_INPUT_KERAS = prein_resnet
 
 ACTIVATE_ONNX = False
-MODEL_PATH_ONNX = "data/models/Xception_last.onnx"
-IMG_SIZE_ONNX = 299
-PRE_INPUT_ONNX = prein_xception
+MODEL_PATH_ONNX = "data/models/ResNet152V2.keras"
+IMG_SIZE_ONNX = 224
+PRE_INPUT_ONNX = prein_resnet
 
 ACTIVATE_TRT = False
-MODEL_PATH_TRT = "data/models/Xception_last.trt"
-IMG_SIZE_TRT = 299
-PRE_INPUT_TRT = prein_xception
+MODEL_PATH_TRT = "data/models/ResNet152V2.keras"
+IMG_SIZE_TRT = 224
+PRE_INPUT_TRT = prein_resnet
 
 ACTIVATE_PT = False
 MODEL_PATH_PT = "data/models/best.pt"
