@@ -16,14 +16,14 @@ from lc2fen.predict_board import (
 ACTIVATE_KERAS = False
 MODEL_PATH_KERAS = "data/models/EfficientNetB7.keras"
 IMG_SIZE_KERAS = 224
-PRE_INPUT_KERAS = prein_squeezenet
+PRE_INPUT_KERAS = prein_efficientnet
 
 ACTIVATE_ONNX = False
 MODEL_PATH_ONNX = "data/models/EfficientNetB7.onnx"
 IMG_SIZE_ONNX = 224
 PRE_INPUT_ONNX = prein_efficientnet
 
-ACTIVATE_TRT = True
+ACTIVATE_TRT = False
 MODEL_PATH_TRT = "data/models/EfficientNetB7.trt"
 IMG_SIZE_TRT = 224
 PRE_INPUT_TRT = prein_efficientnet

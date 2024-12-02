@@ -2,9 +2,12 @@
 
 
 import math
+from typing import Tuple, Any
 
 import cv2
 import numpy as np
+from cv2 import Mat
+from numpy import ndarray, dtype
 
 
 def image_scale(pts, scale):
@@ -12,12 +15,13 @@ def image_scale(pts, scale):
     return [[x / scale, y / scale] for (x, y) in pts]
 
 
-def image_resize(img: np.ndarray, height: int = 500):
-    """Resize image to same normalized area (height**2)."""
-    shape = np.shape(img)
-    scale = math.sqrt((height * height) / (shape[0] * shape[1]))
-    img = cv2.resize(img, (int(shape[1] * scale), int(shape[0] * scale)))
-    return img, shape, scale
+def image_resize(img: np.ndarray, target_area: int = 250000) -> tuple[ndarray | Any, tuple[int, ...], float]:
+    shape = img.shape
+    current_area = shape[0] * shape[1]
+    scale = math.sqrt(target_area / current_area)
+    new_dimensions = (int(shape[1] * scale), int(shape[0] * scale))
+    resized_img = cv2.resize(img, new_dimensions, interpolation=cv2.INTER_AREA)
+    return resized_img, shape, scale
 
 
 def image_transform(img: np.ndarray, points):

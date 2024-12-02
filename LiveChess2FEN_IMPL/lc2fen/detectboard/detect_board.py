@@ -6,12 +6,15 @@ It detects a board on a given image using the `detect()` function.
 
 import cv2
 import numpy as np
+import logging
 
 from lc2fen.detectboard import debug
 from lc2fen.detectboard.cps import cps
 from lc2fen.detectboard.image_object import ImageObject
 from lc2fen.detectboard.laps import laps, check_board_position
 from lc2fen.detectboard.slid import slid
+
+from lc2fen.detectboard.image_object import image_transform
 
 
 def __original_points_coords(point_list):
@@ -100,27 +103,7 @@ def detect(
     output_board: str,
     board_corners: (list[list[int]] | None) = None,
 ):
-    """Detect the board position and store the cropped detected board.
-
-    This function detects the board position in `input_image` and stores
-    the cropped detected board in `output_board`.
-
-    :param input_image: Input chessboard image.
-
-    :param output_board: Output path for the detected-board image.
-
-        This path must include both the name and extension.
-
-    :param board_corners: List of coordinates of the four board corners.
-
-        If it is not None, first check if the board is in the position
-        given by these corners. If not, runs the full detection.
-
-    :return: Final ImageObject with which to compute the corners if
-    necessary.
-    """
-    # Check if we can skip full board detection (if board position is
-    # already known)
+    # Check if we can skip full board detection (if board position is already known)
     if board_corners is not None:
         found, cropped_img = check_board_position(input_image, board_corners)
         if found:
@@ -143,23 +126,16 @@ def detect(
 
 
 def compute_corners(image_object):
-    """Compute the coordinates of the board in the original image.
-
-    This function computes the coordinates of the board in the original
-    image from the ImageObject obtained in the detection.
-
-    :param image_object: ImageObject obtained in the detect method.
-
-    :return: The coordinates in the original image of the chessboard
-    corners and the coordinates of each of the corners of the chessboard
-    squares as a pair of `board_corners` and `square_corners`.
-    """
     board_corners, square_corners = __original_points_coords(
         image_object.get_points()
     )
 
-    debug.DebugImage(image_object.get_images()[0]["orig"]).points(
+    # Transform the original image using board_corners
+    original_image = image_object.get_images()[0]["orig"]
+    corrected_board_image = image_transform(original_image, board_corners)
+
+    debug.DebugImage(original_image).points(
         square_corners, size=50, color=(0, 0, 255)
     ).points(board_corners, size=50, color=(0, 255, 0)).save("corner_points")
 
-    return board_corners, square_corners
+    return board_corners, corrected_board_image
