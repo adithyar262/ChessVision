@@ -65,13 +65,18 @@ def predict_board_keras(
         predictions = model.predict(batch_input)
         return predictions.tolist()
 
-    # Predict a single image
-    return predict_board(
-        path,
-        a1_pos,
-        obtain_piece_probs_for_all_64_squares,
-        previous_fen=previous_fen,
-    )
+    if os.path.isdir(path):
+        return continuous_predictions(
+            path, a1_pos, obtain_piece_probs_for_all_64_squares
+        )
+    else:
+        # Predict a single image
+        return predict_board(
+            path,
+            a1_pos,
+            obtain_piece_probs_for_all_64_squares,
+            previous_fen=previous_fen,
+        )
 
 
 def predict_board_onnx(
@@ -96,12 +101,18 @@ def predict_board_onnx(
         predictions = sess.run(None, {sess.get_inputs()[0].name: batch_input})[0]
         return predictions.tolist()
 
-    return predict_board(
-        path,
-        a1_pos,
-        obtain_piece_probs_for_all_64_squares,
-        previous_fen=previous_fen,
-    )
+    if os.path.isdir(path):
+        return continuous_predictions(
+            path, a1_pos, obtain_piece_probs_for_all_64_squares
+        )
+    else:
+        # Predict a single image
+        return predict_board(
+            path,
+            a1_pos,
+            obtain_piece_probs_for_all_64_squares,
+            previous_fen=previous_fen,
+        )
 
 
 def predict_board_trt(
@@ -245,12 +256,18 @@ def predict_board_trt(
 
         return predictions
 
-    return predict_board(
-        path,
-        a1_pos,
-        obtain_piece_probs_for_all_64_squares,
-        previous_fen=previous_fen,
-    )
+    if os.path.isdir(path):
+        return continuous_predictions(
+            path, a1_pos, obtain_piece_probs_for_all_64_squares
+        )
+    else:
+        # Predict a single image
+        return predict_board(
+            path,
+            a1_pos,
+            obtain_piece_probs_for_all_64_squares,
+            previous_fen=previous_fen,
+        )
 
 
 def predict_board(
@@ -339,3 +356,33 @@ def check_validity_of_fen(fen: str) -> bool:
         return True
     except ValueError:
         return False
+
+
+def continuous_predictions(
+    path: str, a1_pos: str, obtain_piece_probs_for_all_64_squares
+):
+    if not os.path.isdir(path):
+        raise ValueError("The input path must point to a folder")
+
+    def natural_key(text):
+        return [int(c) if c.isdigit() else c for c in re.split(r"(\d+)", text)]
+
+    print("Done loading. Monitoring " + path)
+    board_corners = None
+    fen = None
+    processed_board = False
+    while True:
+        for board_path in sorted(glob.glob(path + "*.jpg"), key=natural_key):
+            fen, board_corners = predict_board(
+                board_path,
+                a1_pos,
+                obtain_piece_probs_for_all_64_squares,
+                board_corners,
+                fen,
+            )
+            print(fen)
+            processed_board = True
+            os.remove(board_path)
+
+        if not processed_board:
+            time.sleep(0.1)
