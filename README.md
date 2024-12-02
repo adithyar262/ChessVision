@@ -1,5 +1,5 @@
 **University of Pennsylvania, CIS 5650: GPU Programming and Architecture,
-Project 1 - Flocking**
+ChessVision**
 
 * Manvi Agarwal [LinkedIn](https://www.linkedin.com/in/manviagarwal27/)
 * Adithya Rajeev [LinkedIn](https://www.linkedin.com/in/adithyar262/)
