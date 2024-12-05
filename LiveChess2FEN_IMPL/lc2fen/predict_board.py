@@ -15,6 +15,7 @@ from lc2fen.detectboard.detect_board import detect, compute_corners
 from lc2fen.split_board import split_board_image_trivial
 from lc2fen.infer_pieces import infer_chess_pieces
 from ultralytics import YOLO
+import re
 
 from lc2fen.fen import (
     list_to_board,
@@ -135,7 +136,7 @@ def predict_board_trt(
             self.host = host_mem
             self.device = device_mem
 
-    def allocate_buffers(engine, context):
+    def allocate_buffers(engine, context, batch_size=1):
         """
         Allocates all buffers required for an engine using the new API.
         """
@@ -143,28 +144,30 @@ def predict_board_trt(
         outputs = []
         bindings = []
         stream = cuda.Stream()
-
-        for i in range(engine.num_io_tensors):
-            tensor_name = engine.get_tensor_name(i)
-            # Get dynamic tensor shape from context
-            shape = context.get_tensor_shape(tensor_name)
-            size = trt.volume(shape)
-            dtype = trt.nptype(engine.get_tensor_dtype(tensor_name))
-
-            # Allocate host and device buffers
-            host_mem = cuda.pagelocked_empty(size, dtype)
-            device_mem = cuda.mem_alloc(host_mem.nbytes)
-
-            # Append to device bindings
-            bindings.append(int(device_mem))
-
-            # Append to appropriate list (input or output)
-            if engine.get_tensor_mode(tensor_name) == trt.TensorIOMode.INPUT:
-                inputs.append(HostDeviceMem(host_mem, device_mem))
-            else:
-                outputs.append(HostDeviceMem(host_mem, device_mem))
+        
+        try:
+            for binding in range(engine.num_bindings):
+                print(f"Binding '{engine.get_binding_name(binding)}': {engine.get_binding_shape(binding)}")
+                shape = engine.get_binding_shape(binding)
+                shape = [batch_size if dim == -1 else dim for dim in shape]
+                size = trt.volume(shape)
+                dtype = trt.nptype(engine.get_binding_dtype(binding))
+                print(f"Allocating buffer of size {size} for binding '{engine.get_binding_name(binding)}'")
+                host_mem = cuda.pagelocked_empty(size, dtype)
+                device_mem = cuda.mem_alloc(host_mem.nbytes)
+                bindings.append(int(device_mem))
+                if engine.binding_is_input(binding):
+                    inputs.append(HostDeviceMem(host_mem, device_mem))
+                else:
+                    outputs.append(HostDeviceMem(host_mem, device_mem))
+        except cuda.MemoryError as e:
+            for mem in inputs + outputs:
+                del mem.device
+            del stream
+            raise
 
         return inputs, outputs, bindings, stream
+
 
     def run_inference(context, bindings, inputs, outputs, stream, batch_size):
         """
@@ -175,12 +178,14 @@ def predict_board_trt(
             cuda.memcpy_htod_async(inp.device, inp.host, stream)
 
         # Set tensor addresses for all bindings
-        for i in range(len(bindings)):
-            tensor_name = context.engine.get_tensor_name(i)
-            context.set_tensor_address(tensor_name, bindings[i])
+        for binding in range(context.engine.num_bindings):
+            if context.engine.binding_is_input(binding):
+                engine_shape = context.get_binding_shape(binding)
+                shape = [batch_size if dim == -1 else dim for dim in engine_shape]
+                context.set_binding_shape(binding, tuple(shape))
 
         # Execute inference
-        context.execute_async_v3(stream_handle=stream.handle)
+        context.execute_async_v2(bindings=bindings, stream_handle=stream.handle)
 
         # Transfer output data back to host
         for out in outputs:
@@ -189,7 +194,6 @@ def predict_board_trt(
         # Synchronize the stream
         stream.synchronize()
 
-        # Return the output host memory
         return [out.host for out in outputs]
 
     # Load TensorRT engine
@@ -200,18 +204,9 @@ def predict_board_trt(
     # Create execution context
     context = engine.create_execution_context()
 
-    # Set batch size
-    batch_size = 16
-
-    # Prepare input shape (assuming NHWC format)
-    input_shape = (batch_size, img_size, img_size, 3)
-
-    # Set the binding shape dynamically for the input tensor
-    input_tensor_name = engine.get_tensor_name(0)
-    context.set_input_shape(input_tensor_name, input_shape)
-
     # Allocate buffers
-    inputs, outputs, bindings, stream = allocate_buffers(engine, context)
+    batch_size = 1
+    inputs, outputs, bindings, stream = allocate_buffers(engine, context, batch_size)
 
     def obtain_piece_probs_for_all_64_squares(pieces: List[np.ndarray]) -> List[List[float]]:
         """
@@ -230,19 +225,8 @@ def predict_board_trt(
         for i in range(0, total_pieces, batch_size):
             batch_data = batch_input[i:i + batch_size]
             current_batch_size = batch_data.shape[0]
-            input_shape = (current_batch_size, img_size, img_size, 3)
-
-            # Set binding shape dynamically using tensor name
-            context.set_input_shape(input_tensor_name, input_shape)
-
-            # Reallocate buffers if necessary
-            input_nbytes = batch_data.nbytes
-            if inputs[0].host.nbytes < input_nbytes:
-                inputs[0].host = cuda.pagelocked_empty(batch_data.size, dtype=np.float32)
-                inputs[0].device.free()
-                inputs[0].device = cuda.mem_alloc(input_nbytes)
-                bindings[0] = int(inputs[0].device)
-
+            context.set_binding_shape(0, (current_batch_size, img_size, img_size, 3))
+            
             # Copy input data
             np.copyto(inputs[0].host, batch_data.ravel())
 
@@ -313,7 +297,7 @@ def detect_input_board(board_path: str, board_corners: (list[list[int]] | None) 
     return board_corners, corrected_board_image
 
 
-def split_board_image_in_memory(board_image: np.ndarray, margin: int = 20, board_margin: int = 10) -> List[np.ndarray]:
+def split_board_image_in_memory(board_image: np.ndarray, margin: int = 10, board_margin: int = 10) -> List[np.ndarray]:
     squares = []
     board_size = board_image.shape[0]  # Assuming square image
     inner_board_size = board_size - 2 * board_margin  # Size of the actual chessboard without the board margin
