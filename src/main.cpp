@@ -5,8 +5,10 @@
 #include <vector>
 #include <thread>
 #include <mutex>
-#include <WinSock2.h>
-#include <WS2tcpip.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <unistd.h>
 #include "shader.hpp"
 #include "texture.hpp"
 #include "renderer.hpp"
@@ -37,28 +39,20 @@ std::string currentFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";  // Init
 std::mutex fenMutex;
 
 void receiveFen() {
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        std::cerr << "WSAStartup failed" << std::endl;
-        return;
-    }
-
-    SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock == INVALID_SOCKET) {
+    int sock = socket(AF_INET, SOCK_STREAM, 0);
+    if (sock < 0) {
         std::cerr << "Socket creation failed" << std::endl;
-        WSACleanup();
         return;
     }
 
-    sockaddr_in serverAddr;
+    struct sockaddr_in serverAddr;
     serverAddr.sin_family = AF_INET;
     serverAddr.sin_port = htons(12345);
-    inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr);  // Replace with Jetson's IP
+    inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr);
 
-    if (connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
+    if (connect(sock, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
         std::cerr << "Connection failed" << std::endl;
-        closesocket(sock);
-        WSACleanup();
+        close(sock);
         return;
     }
 
@@ -78,8 +72,7 @@ void receiveFen() {
         }
     }
 
-    closesocket(sock);
-    WSACleanup();
+    close(sock);
 }
 
 
