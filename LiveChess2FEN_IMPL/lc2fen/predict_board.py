@@ -7,8 +7,10 @@ import numpy as np
 import cv2
 import os
 import chess
+import chess.engine
 import onnxruntime
-
+import socket
+import time
 from keras.api.models import load_model
 from keras.api.utils import load_img, img_to_array
 from lc2fen.detectboard.detect_board import detect, compute_corners
@@ -34,6 +36,26 @@ except ImportError:
     cuda = None
     trt = None
 
+def get_position_score(fen, time_limit=2.0):
+    engine = chess.engine.SimpleEngine.popen_uci("/home/adi/ChessVision_V2/ChessVision/LiveChess2FEN_IMPL/data/engine/stockfish")
+    board = chess.Board(fen)
+    info = engine.analyse(board, chess.engine.Limit(time=time_limit))
+    score = info["score"].white()
+    #for ease of processing
+    score = str(score)
+    final_score = 0
+    if '#' in (score):
+        final_score = (14)
+    else:
+        if '+' in score:
+            final_score = int(score.replace('+',''))
+        elif '-' in score:
+            final_score = int(score.replace('-',''))
+            final_score *= -1
+        print("score = ",score)
+        final_score /= 200 
+    engine.quit()
+    return final_score
 
 def load_image(img_array: np.ndarray, img_size: int, preprocess_func) -> np.ndarray:
     # Resize the image
@@ -45,6 +67,12 @@ def load_image(img_array: np.ndarray, img_size: int, preprocess_func) -> np.ndar
     img_tensor = preprocess_func(img_tensor)
     return img_tensor
 
+def send_fen(sock, fen):
+    try:
+        sock.send(fen.encode())
+        print(f"Sent FEN: {fen}")
+    except Exception as e:
+        print(f"Error sending FEN: {e}")
 
 def predict_board_keras(
         model_path: str,
@@ -69,7 +97,7 @@ def predict_board_keras(
 
     if os.path.isdir(path):
         return continuous_predictions(
-            path, a1_pos, obtain_piece_probs_for_all_64_squares
+            path, a1_pos, obtain_piece_probs_for_all_64_squares, previous_fen
         )
     else:
         # Predict a single image
@@ -105,7 +133,7 @@ def predict_board_onnx(
 
     if os.path.isdir(path):
         return continuous_predictions(
-            path, a1_pos, obtain_piece_probs_for_all_64_squares
+            path, a1_pos, obtain_piece_probs_for_all_64_squares, previous_fen
         )
     else:
         # Predict a single image
@@ -243,7 +271,7 @@ def predict_board_trt(
 
     if os.path.isdir(path):
         return continuous_predictions(
-            path, a1_pos, obtain_piece_probs_for_all_64_squares
+            path, a1_pos, obtain_piece_probs_for_all_64_squares, previous_fen
         )
     else:
         # Predict a single image
@@ -377,7 +405,8 @@ def check_validity_of_fen(fen: str) -> bool:
 
 
 def continuous_predictions(
-    path: str, a1_pos: str, obtain_piece_probs_for_all_64_squares
+    path: str, a1_pos: str, obtain_piece_probs_for_all_64_squares,
+        previous_fen: (str | None) = None,
 ):
     if not os.path.isdir(path):
         raise ValueError("The input path must point to a folder")
@@ -385,6 +414,21 @@ def continuous_predictions(
     def natural_key(text):
         return [int(c) if c.isdigit() else c for c in re.split(r"(\d+)", text)]
 
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        print("Attempting to connect to server...")
+        sock.connect(('localhost', 12345))
+        print("Connected to server successfully")
+    except:
+        print("Server connection failed")
+
+    if previous_fen is not None:
+        print("Sending initial position")
+        score = get_position_score(previous_fen)
+        send_fen(sock, f"{previous_fen}|{score}")
+    else:
+        print("Initial position missing")
+    
     print("Done loading. Monitoring " + path)
     board_corners = None
     fen = None
@@ -398,7 +442,9 @@ def continuous_predictions(
                 board_corners,
                 fen,
             )
-            print(fen)
+            print("FEN Generated - ", fen)
+            score = get_position_score(fen)
+            send_fen(sock, f"{fen}|{score}")
             processed_board = True
             os.remove(board_path)
 
