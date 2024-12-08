@@ -13,13 +13,17 @@ void main()
     
     int squareIndex = int(TexCoord.x * 8) + int(TexCoord.y * 8) * 8;
     if (squareIndex >= 0 && squareIndex < 64) {
-        pieceTexCoord = piecePositions[squareIndex];
+            pieceTexCoord = piecePositions[squareIndex];
+        if (pieceTexCoord.x >= 0 && pieceTexCoord.y >= 0) {
+            vec4 pieceColor = texture(overlayTexture, pieceTexCoord + fract(TexCoord * 8.0) / 8.0);
+            FragColor = mix(boardColor, pieceColor, pieceColor.a);
+        } else {
+            FragColor = boardColor;
+        }
+    }
+    else
+    {
+        FragColor = vec4(TexCoord.x, TexCoord.x, TexCoord.x, 1.0);  
     }
     
-    if (pieceTexCoord.x >= 0 && pieceTexCoord.y >= 0) {
-        vec4 pieceColor = texture(overlayTexture, pieceTexCoord + fract(TexCoord * 8.0) / 8.0);
-        FragColor = mix(boardColor, pieceColor, pieceColor.a);
-    } else {
-        FragColor = boardColor;
-    }
 }
