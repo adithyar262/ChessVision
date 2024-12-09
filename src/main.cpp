@@ -186,7 +186,6 @@ void receiveFen() {
 
 
 int main() {
-    // int delay = 0;
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW" << std::endl;
         return -1;
@@ -235,9 +234,6 @@ int main() {
     fenUpdate = true;
 
     while (!glfwWindowShouldClose(window)) {
-        // delay += 1;
-        // if(delay == 1000)
-        //     renderer.UpdateVertices(1.0);
 
         glClear(GL_COLOR_BUFFER_BIT);
 
@@ -271,7 +267,7 @@ int main() {
                     piecePositions[index * 2] = pieceToTexture[piece].u;
                     piecePositions[index * 2 + 1] = pieceToTexture[piece].v;
                 } else {
-                    piecePositions[index * 2] = -1.0f;
+                    piecePositions[index * 2] = -1.0f;  
                     piecePositions[index * 2 + 1] = -1.0f;
                 }
             }
