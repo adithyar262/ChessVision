@@ -5,11 +5,19 @@
 #include <vector>
 #include <thread>
 #include <mutex>
-#include <WinSock2.h>
-#include <WS2tcpip.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#include <csignal>
+#include <unistd.h> 
 #include "shader.hpp"
 #include "texture.hpp"
 #include "renderer.hpp"
+
+std::string currentFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";  // Initial position
+float currentScore = 0.0;  // Initial score
+std::mutex fenMutex;
+bool fenUpdate = false;
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -33,44 +41,139 @@ std::unordered_map<char, TextureCoord> pieceToTexture = {
     {' ', {0.5f, 0.5f}}         // Empty square
 };
 
-std::string currentFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";  // Initial position
-std::mutex fenMutex;
+// void receiveFen() {
+//     int sock = socket(AF_INET, SOCK_STREAM, 0);
+//     if (sock < 0) {
+//         std::cerr << "Socket creation failed" << std::endl;
+//         return;
+//     }
+
+//     struct sockaddr_in serverAddr;
+//     serverAddr.sin_family = AF_INET;
+//     serverAddr.sin_port = htons(12345);
+//     inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr);
+
+//     if (connect(sock, (struct sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
+//         std::cerr << "Connection failed" << std::endl;
+//         close(sock);
+//         return;
+//     }
+
+//     char buffer[128];
+//     while (true) {
+//         int bytesReceived = recv(sock, buffer, sizeof(buffer), 0);
+//         if (bytesReceived > 0) {
+//             buffer[bytesReceived] = '\0';
+//             std::lock_guard<std::mutex> lock(fenMutex);
+//             currentFen = buffer;
+//         } else if (bytesReceived == 0) {
+//             std::cout << "Server disconnected" << std::endl;
+//             break;
+//         } else {
+//             std::cerr << "recv failed" << std::endl;
+//             break;
+//         }
+//     }
+
+//     close(sock);
+// }
+
+int server_fd = -1; // Global variable to store the server socket
+
+void signalHandlerForMain(int signum) {
+    if (signum == SIGINT) {
+        std::cout << "\nSIGINT received. Cleaning up and exiting..." << std::endl;
+        if (server_fd != -1) {
+            close(server_fd); // Close the server socket
+            std::cout << "Socket closed." << std::endl;
+        }
+        exit(0); // Exit gracefully
+    }
+}
+
+void setupSignalHandler() {
+    struct sigaction sa = {};
+    sa.sa_handler = signalHandlerForMain; // Set the handler function
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+
+    if (sigaction(SIGINT, &sa, nullptr) == -1) {
+        perror("sigaction");
+        exit(EXIT_FAILURE);
+    }
+}
 
 void receiveFen() {
-    WSADATA wsaData;
-    if (WSAStartup(MAKEWORD(2, 2), &wsaData) != 0) {
-        std::cerr << "WSAStartup failed" << std::endl;
-        return;
-    }
+    setupSignalHandler(); // Set up the signal handler at the start of the function
 
-    SOCKET sock = socket(AF_INET, SOCK_STREAM, 0);
-    if (sock == INVALID_SOCKET) {
+    struct sockaddr_in address;
+    int opt = 1;
+    int addrlen = sizeof(address);
+
+    if ((server_fd = socket(AF_INET, SOCK_STREAM, 0)) == 0) {
         std::cerr << "Socket creation failed" << std::endl;
-        WSACleanup();
         return;
     }
 
-    sockaddr_in serverAddr;
-    serverAddr.sin_family = AF_INET;
-    serverAddr.sin_port = htons(12345);
-    inet_pton(AF_INET, "127.0.0.1", &serverAddr.sin_addr);  // Replace with Jetson's IP
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR | SO_REUSEPORT, &opt, sizeof(opt))) {
+        std::cerr << "Setsockopt failed" << std::endl;
+        return;
+    }
 
-    if (connect(sock, (sockaddr*)&serverAddr, sizeof(serverAddr)) == SOCKET_ERROR) {
-        std::cerr << "Connection failed" << std::endl;
-        closesocket(sock);
-        WSACleanup();
+    address.sin_family = AF_INET;
+    address.sin_addr.s_addr = INADDR_ANY;
+    address.sin_port = htons(12345); // Use a fixed port or dynamic port as needed
+
+    if (bind(server_fd, (struct sockaddr *)&address, sizeof(address)) < 0) {
+        std::cerr << "Bind failed" << std::endl;
+        return;
+    }
+
+    if (listen(server_fd, 1) < 0) {
+        std::cerr << "Listen failed" << std::endl;
+        return;
+    }
+
+    std::cout << "Listening on port 12345..." << std::endl;
+
+    int new_socket;
+    if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
+        std::cerr << "Accept failed" << std::endl;
         return;
     }
 
     char buffer[128];
     while (true) {
-        int bytesReceived = recv(sock, buffer, sizeof(buffer), 0);
+        int bytesReceived = recv(new_socket, buffer, sizeof(buffer), 0);
         if (bytesReceived > 0) {
             buffer[bytesReceived] = '\0';
-            std::lock_guard<std::mutex> lock(fenMutex);
-            currentFen = buffer;
+            std::string receivedData = buffer;
+            size_t delimiterPos = receivedData.find('|');
+            if (delimiterPos != std::string::npos) {
+                std::string fen = receivedData.substr(0, delimiterPos);
+                std::string scoreStr = receivedData.substr(delimiterPos + 1);
+                std::cout << "FEN Received: " << fen << std::endl;
+                std::cout << "Score: " << scoreStr << std::endl;
+
+                // Trim whitespace from the score string
+                scoreStr.erase(0, scoreStr.find_first_not_of(" \n\r\t"));
+                scoreStr.erase(scoreStr.find_last_not_of(" \n\r\t") + 1);
+
+                try {
+                    float score = std::stof(scoreStr);
+                    
+                    std::lock_guard<std::mutex> lock(fenMutex);
+                    currentFen = fen;
+                    currentScore = score * 4 / 14;
+                    fenUpdate = true;
+                } catch (const std::invalid_argument& e) {
+                    std::cerr << "Invalid score format: " << scoreStr << std::endl;
+                } catch (const std::out_of_range& e) {
+                    std::cerr << "Score out of range: " << scoreStr << std::endl;
+                }
+            }
         } else if (bytesReceived == 0) {
-            std::cout << "Server disconnected" << std::endl;
+            std::cout << "Client disconnected" << std::endl;
             break;
         } else {
             std::cerr << "recv failed" << std::endl;
@@ -78,18 +181,21 @@ void receiveFen() {
         }
     }
 
-    closesocket(sock);
-    WSACleanup();
+    close(new_socket);
 }
 
 
 int main() {
-
-    int delay = 0;
     if (!glfwInit()) {
         std::cerr << "Failed to initialize GLFW" << std::endl;
         return -1;
     }
+
+    struct sigaction sa = {};
+    sa.sa_handler = signalHandlerForMain;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = 0;
+    sigaction(SIGINT, &sa, nullptr);
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
@@ -125,18 +231,23 @@ int main() {
 
     std::thread fenThread(receiveFen);
 
-    while (!glfwWindowShouldClose(window)) {
-        delay += 1;
+    fenUpdate = true;
 
-        if(delay == 1000)
-            renderer.UpdateVertices(1.0);
-            
+    while (!glfwWindowShouldClose(window)) {
+
         glClear(GL_COLOR_BUFFER_BIT);
-        // renderer.updateBoard(fen);
 
         {
-            std::lock_guard<std::mutex> lock(fenMutex);
-            renderer.updateBoard(currentFen);
+            if(fenUpdate) {
+                std::lock_guard<std::mutex> lock(fenMutex);
+                // std::cout<<"Current FEN : "<<currentFen<<std::endl;
+                renderer.updateBoard(currentFen);
+                // float score = std::stof(currentScore);
+                printf("score = %f",currentScore);
+                renderer.UpdateVertices(currentScore);
+                fenUpdate = false;
+            }
+            
         }
 
         shader.use();

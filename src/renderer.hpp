@@ -12,6 +12,8 @@ public:
     Renderer();
     void draw();
     void updateBoard(const std::string& fen);
+
+    void UpdateVertices(float score);
     ~Renderer();
 };
 
