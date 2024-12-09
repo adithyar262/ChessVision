@@ -150,6 +150,121 @@ The ChessVision pipeline is optimized for continuous analysis of live chess game
 
 These optimizations work in concert to create a responsive, real-time chess analysis system capable of handling the rapid pace of live chess games, including fast-paced formats like bullet chess
 
+## Performance Analysis
+The optimization results validate the effectiveness of the implemented strategies, showing significant improvements in both accuracy and processing speed.
+
+### Execution Speed
+
+The execution speed graph shows dramatic improvements through layered optimizations:
+
+![](images/inference_time.png)
+
+- Basic TensorRT implementation achieved 0.15 1/s, significantly outperforming base Keras (0.025 1/s) and ONNX (0.05 1/s)
+- Adding multi-threading improved performance to approximately 0.18 1/s
+- Combining TensorRT with multi-threading and batch processing reached 0.22 1/s
+- The full optimization stack (TensorRT + Multi-threading + Batch + Pre/Post processing) achieved the highest speed at 0.25 1/s, representing a 10x improvement over the baseline Keras implementation
+
+
+### Accuracy
+
+The accuracy graph demonstrates the cumulative impact of optimizations:
+
+![](images/accuracy.png)
+
+
+- The baseline model achieved 91% accuracy
+- Model training optimizations boosted accuracy to 95.31%, showing a 4.31% improvement
+- Pre-processing with image filtering further increased accuracy to 97.24%, particularly due to the implementation of change detection and improved square cropping
+- The combination of pre and post-processing techniques achieved the highest accuracy of 99.12%, representing an 8.12% total improvement from baseline
+
+### Optimization Effectiveness
+The data confirms that the implemented optimizations were successful:
+
+- The "only process changed squares" strategy contributed to the dramatic speed improvements seen in the TensorRT implementations
+- Multi-threading and batch processing optimizations showed clear additive benefits to execution speed
+- The pre and post-processing enhancements not only improved accuracy but maintained high execution speeds
+- The combination of GPU utilization and parallel processing strategies resulted in the highest performance metrics
+
+### Key Findings
+The optimization results demonstrate that combining multiple techniques yields the best results:
+
+- Accuracy improves by 8.12 percentage points from baseline to fully optimized model
+- TensorRT with multiple optimizations outperforms basic implementations by nearly 5x compared to ONNX and 10x compared to Keras
+- Pre and post-processing stages contribute significantly to accuracy improvements while maintaining competitive execution speeds
+
+These optimizations achieve an optimal balance between accuracy and speed, making the model suitable for production deployment.
+
+## Hardware Utilization Analysis
+
+### System Configurations
+
+**Initial Implementation (Jetson Nano)**
+
+![](images/nano_utilization.png)
+
+    Device: NVIDIA Jetson Nano Developer Kit
+    JetPack Version: 4.6 [L4T 32.6.1]
+    Memory: 3.9G available
+    Storage: 57.2G available
+
+**Final Implementation (Jetson Orin Nano)**
+
+![](images/orin_utilization.jpg)
+
+    Device: NVIDIA Jetson Orin Nano Developer Kit
+    JetPack Version: 6.0 [L4T 36.3.0]
+    Memory: 7.4G available
+    Storage: 233G available
+
+### CPU Utilization
+
+![](images/cpu_utilization.png)
+
+The Jetson Nano shows consistently high CPU load (94-98%) across all cores, indicating potential CPU bottlenecking. In contrast, the Orin Nano shows varied utilization (11-100%) with better load distribution, suggesting more efficient processing despite higher operating temperature (52.66°C vs 32°C).
+
+### GPU Utilization
+
+![](images/gpu_utilization.png)
+
+An improvement is visible in GPU usage:
+- Nano: 17.3% utilization at 76.8MHz with minimal power draw (36mW)
+- Orin: 63.5% utilization at 300MHz with 1.6W power consumption
+
+This indicates much better GPU acceleration and hardware utilization in the final implementation.
+
+
+### Memory and Storage
+
+![](images/memory_and_storage.png)
+
+Memory management shows significant differences:
+
+- Nano: Using 1.5G of 3.9G available RAM (38% usage)
+- Orin: Using 2.4G of 7.4G available RAM (32% usage)
+
+Storage utilization increased from 20.2G/57.2G on Nano to 34.8G/233G on Orin, though with proportionally less total capacity used.
+
+
+### System Power
+
+![](images/system_power.png)
+
+Power consumption patterns reveal platform differences:
+
+- Nano: Operates at 3.4W total system power with minimal GPU power (36mW)
+- Orin: Runs at 6.1W total with higher GPU power draw (1.6W)
+
+The increased power consumption reflects the Orin's more powerful hardware and higher processing capabilities.
+
+
+**Notes**
+
+- Performance metrics should be interpreted considering the hardware generation gap between Jetson Nano and Orin Nano
+- Higher power consumption on Orin Nano is justified by its enhanced processing capabilities
+- Fan speed increased from 0 RPM to 1656 RPM in the final implementation for better thermal management
+- GPU utilization improvement indicates better hardware acceleration in the final implementation
+
+
 ## Future Developments
 
 - Further optimization for Jetson Nano and Orin platforms
