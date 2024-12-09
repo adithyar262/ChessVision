@@ -5,9 +5,9 @@ ChessVision**
 * Adithya Rajeev [LinkedIn](https://www.linkedin.com/in/adithyar262/)
 * Kevin Dong [LinkedIn](https://www.linkedin.com/in/xingyu-dong)
 
-   Tested on: Jetson Orin, NVIDIA Ampere 8GB and RealSense Camera
+## Hardware Specifications
 
-
+![](images/hardware_specs.png)
 
 # ChessVision
 
