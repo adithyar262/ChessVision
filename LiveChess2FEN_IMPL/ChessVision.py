@@ -22,12 +22,12 @@ IMG_SIZE_KERAS = 224
 PRE_INPUT_KERAS = prein_resnet
 
 ACTIVATE_ONNX = False
-MODEL_PATH_ONNX = "data/models/ResNet152V2.keras"
+MODEL_PATH_ONNX = "data/models/ResNet152V2.onnx"
 IMG_SIZE_ONNX = 224
 PRE_INPUT_ONNX = prein_resnet
 
 ACTIVATE_TRT = False
-MODEL_PATH_TRT = "data/models/ResNet152V2.keras"
+MODEL_PATH_TRT = "data/models/ResNet152V2.trt"
 IMG_SIZE_TRT = 224
 PRE_INPUT_TRT = prein_resnet
 
