@@ -281,6 +281,7 @@ The increased power consumption reflects the Orin's more powerful hardware and h
 - [Milestone 1](https://docs.google.com/presentation/d/1U8ps8ubOPQaQodlSa4sc5Am6RymVd1RFZkvMr81juZM/edit?usp=sharing)
 - [Milestone 2](https://docs.google.com/presentation/d/1VHaGN9LacqWEvyHqry0u9dCRp4Tq3KSkKzSpWPdE-mc/edit?usp=sharing)
 - [Milestone 3](https://docs.google.com/presentation/d/1p_hStFTQr3upH9vLvdIlaWQbT13kGrGzDTNNHWYOgtw/edit?usp=sharing)
+- [Final Presentation](https://docs.google.com/presentation/d/1Hh93qUrkFLRVeOX1GlL3xiI2pAWiPVpk0WI1_AlPHqI/edit?usp=sharing)
 
 ## Reference
 - LiveChess2FEN (Original Project): [Link](https://developer.nvidia.com/blog/jetson-project-of-the-month-livechess2fen-provides-real-time-game-analysis/)
