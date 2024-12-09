@@ -109,7 +109,9 @@ void Renderer::UpdateVertices(float score)
     float x1 = -0.95;
     float x2 = x1 + step;
     float y1 = -1.0f +  2.0f*step;
-    float y2 = y1 + 2.0f*6.0f*step;
+
+    float y2 = y1 + 2.0f*(4.0f - score)*step;
+
     const int verticesPerSquare = 6;
     const int componentsPerVertex = 5;
     int baseIndex = 0;
@@ -127,8 +129,10 @@ void Renderer::UpdateVertices(float score)
     baseIndex += 30;
     x1 = -0.95f;
     x2 = x1 + step;
-    y1 = -1.0f +  2.0f*7.0f*step;
-    y2 = y1 + 2.0f*2.0f*step;
+
+    y1 = -1.0f +  2.0f*(5.0f - score)*step;
+    y2 = y1 + 2.0f*(9.0f - 5.0f + score)*step;
+
     /// white bar 
     v1[baseIndex     ] = x1; v1[baseIndex + 1 ] = y2; v1[baseIndex + 2 ] = 0.0f; v1[baseIndex + 3 ] = 1; v1[baseIndex + 4 ] = 1;
     v1[baseIndex + 5 ] = x2; v1[baseIndex + 6 ] = y2; v1[baseIndex + 7 ] = 0.0f; v1[baseIndex + 8 ] = 1; v1[baseIndex + 9 ] = 1;
@@ -155,14 +159,14 @@ void Renderer::draw() {
 
 void Renderer::updateBoard(const std::string& fen) {
     board = parseFEN(fen);
-    std::cout << "Current board state:" << std::endl;
-    for (int row = 7; row >= 0; --row) {
-        for (int col = 0; col < 8; ++col) {
-            std::cout << (board[row][col] == ' ' ? '.' : board[row][col]) << ' ';
-        }
-        std::cout << std::endl;
-    }
-    std::cout << std::endl;
+    // std::cout << "Current board state:" << std::endl;
+    // for (int row = 7; row >= 0; --row) {
+    //     for (int col = 0; col < 8; ++col) {
+    //         std::cout << (board[row][col] == ' ' ? '.' : board[row][col]) << ' ';
+    //     }
+    //     std::cout << std::endl;
+    // }
+    // std::cout << std::endl;
 }
 
 Renderer::~Renderer() {
