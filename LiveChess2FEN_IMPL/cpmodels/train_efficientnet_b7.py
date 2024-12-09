@@ -40,7 +40,7 @@ def train_chesspiece_model():
 
     callbacks = model_callbacks(
         early_stopping_patience=5,
-        model_checkpoint_path="./models/EfficientNetB7_pre.keras",
+        model_checkpoint_path="./models/EfficientNetB7_pre_v2.keras",
         reducelr_factor=0.1,
         reducelr_patience=5,
         tensorboard_log_dir="./logs/pretraining",
@@ -58,8 +58,8 @@ def train_chesspiece_model():
 
     plot_model_history(
         history,
-        "./models/EfficientNetB7_pre_acc.png",
-        "./models/EfficientNetB7_pre_loss.png",
+        "./models/EfficientNetB7_pre_acc_v2.png",
+        "./models/EfficientNetB7_pre_loss_v2.png",
     )
     evaluate_model(model, validation_generator)
 
@@ -80,7 +80,7 @@ def train_chesspiece_model():
 
     callbacks = model_callbacks(
         early_stopping_patience=10,
-        model_checkpoint_path="./models/EfficientNetB7.keras",
+        model_checkpoint_path="./models/EfficientNetB7_v2.keras",
         reducelr_factor=0.5,
         reducelr_patience=5,
         tensorboard_log_dir="./logs/fine_tuning",
@@ -97,16 +97,16 @@ def train_chesspiece_model():
     )
 
     plot_model_history(
-        history, "./models/EfficientNetB7_acc.png", "./models/EfficientNetB7_loss.png"
+        history, "./models/EfficientNetB7_acc_v2.png", "./models/EfficientNetB7_loss_v2.png"
     )
     evaluate_model(model, validation_generator)
 
-    model.save("./models/EfficientNetB7_last.keras")
+    model.save("./models/EfficientNetB7_last_v2.keras")
 
 
 def continue_training():
     """Continue training chess-piece model based on EfficientNetB7."""
-    model = load_model("./models/EfficientNetB7_last.keras")
+    model = load_model("./models/EfficientNetB7_last_v2.keras")
 
     train_generator, validation_generator = data_generators(
         preprocess_input, (224, 224), 32
@@ -153,4 +153,4 @@ def continue_training():
 
 if __name__ == "__main__":
     train_chesspiece_model()
-    continue_training()
+    # continue_training()

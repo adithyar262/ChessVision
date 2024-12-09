@@ -40,7 +40,7 @@ def train_chesspiece_model():
 
     callbacks = model_callbacks(
         early_stopping_patience=5,
-        model_checkpoint_path="./models/Xception_pre.keras",
+        model_checkpoint_path="./models/Xception_pre_v2.keras",
         reducelr_factor=0.1,
         reducelr_patience=5,
         tensorboard_log_dir="./logs/pretraining",
@@ -58,8 +58,8 @@ def train_chesspiece_model():
 
     plot_model_history(
         history,
-        "./models/Xception_pre_acc.png",
-        "./models/Xception_pre_loss.png",
+        "./models/Xception_pre_acc_v2.png",
+        "./models/Xception_pre_loss_v2.png",
     )
     evaluate_model(model, validation_generator)
 
@@ -80,7 +80,7 @@ def train_chesspiece_model():
 
     callbacks = model_callbacks(
         early_stopping_patience=10,
-        model_checkpoint_path="./models/Xception.keras",
+        model_checkpoint_path="./models/Xception_v2.keras",
         reducelr_factor=0.5,
         reducelr_patience=5,
         tensorboard_log_dir="./logs/fine_tuning",
@@ -97,11 +97,11 @@ def train_chesspiece_model():
     )
 
     plot_model_history(
-        history, "./models/Xception_acc.png", "./models/Xception_loss.png"
+        history, "./models/Xception_acc_v2.png", "./models/Xception_loss_v2.png"
     )
     evaluate_model(model, validation_generator)
 
-    model.save("./models/Xception_last.keras")
+    model.save("./models/Xception_last_v2.keras")
 
 
 def continue_training():

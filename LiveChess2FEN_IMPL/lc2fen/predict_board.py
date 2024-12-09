@@ -313,11 +313,15 @@ def detect_input_board(board_path: str, board_corners: (list[list[int]] | None) 
     return board_corners, corrected_board_image
 
 
-def split_board_image_in_memory(board_image: np.ndarray, margin: int = 20, board_margin: int = 10) -> List[np.ndarray]:
+def split_board_image_in_memory(board_image: np.ndarray, margin: int = 0, board_margin: int = 10) -> List[np.ndarray]:
     squares = []
     board_size = board_image.shape[0]  # Assuming square image
     inner_board_size = board_size - 2 * board_margin  # Size of the actual chessboard without the board margin
     square_size = inner_board_size // 8
+
+    # empty the folder first
+    for file in glob.glob("images/tmp/pieces/*"):
+        os.remove(file)
 
     for row in range(8):
         for col in range(8):
@@ -340,6 +344,9 @@ def split_board_image_in_memory(board_image: np.ndarray, margin: int = 20, board
             # Crop the square and append to the list
             square = board_image[y_start:y_end, x_start:x_end]
             squares.append(square)
+
+            # Save the square image
+            cv2.imwrite(f"images/tmp/pieces/square_{row}_{col}.jpg", square)
     return squares
 
 
