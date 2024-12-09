@@ -129,7 +129,7 @@ def detect(
     return image
 
 
-def compute_corners(image_object, border=10):
+def compute_corners(image_object, border=0):
     board_corners, square_corners = __original_points_coords(
         image_object.get_points(), border=border
     )

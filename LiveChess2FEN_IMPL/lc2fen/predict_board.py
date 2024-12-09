@@ -39,6 +39,7 @@ except ImportError:
 def get_position_score(fen, time_limit=2.0):
     engine = chess.engine.SimpleEngine.popen_uci("/home/adi/ChessVision_V2/ChessVision/LiveChess2FEN_IMPL/data/engine/stockfish")
     board = chess.Board(fen)
+    print("board = ",board)
     info = engine.analyse(board, chess.engine.Limit(time=time_limit))
     score = info["score"].white()
     #for ease of processing

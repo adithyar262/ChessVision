@@ -15,8 +15,9 @@
 #include "renderer.hpp"
 
 std::string currentFen = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR";  // Initial position
-std::string currentScore = "0.0";  // Initial score
+float currentScore = 0.0;  // Initial score
 std::mutex fenMutex;
+bool fenUpdate = false;
 
 #pragma comment(lib, "ws2_32.lib")
 
@@ -153,12 +154,23 @@ void receiveFen() {
                 std::string scoreStr = receivedData.substr(delimiterPos + 1);
                 std::cout << "FEN Received: " << fen << std::endl;
                 std::cout << "Score: " << scoreStr << std::endl;
-                
-                float score = std::stof(scoreStr);
-                
-                std::lock_guard<std::mutex> lock(fenMutex);
-                currentFen = fen;
-                currentScore = score;
+
+                // Trim whitespace from the score string
+                scoreStr.erase(0, scoreStr.find_first_not_of(" \n\r\t"));
+                scoreStr.erase(scoreStr.find_last_not_of(" \n\r\t") + 1);
+
+                try {
+                    float score = std::stof(scoreStr);
+                    
+                    std::lock_guard<std::mutex> lock(fenMutex);
+                    currentFen = fen;
+                    currentScore = score * 4 / 14;
+                    fenUpdate = true;
+                } catch (const std::invalid_argument& e) {
+                    std::cerr << "Invalid score format: " << scoreStr << std::endl;
+                } catch (const std::out_of_range& e) {
+                    std::cerr << "Score out of range: " << scoreStr << std::endl;
+                }
             }
         } else if (bytesReceived == 0) {
             std::cout << "Client disconnected" << std::endl;
@@ -220,6 +232,8 @@ int main() {
 
     std::thread fenThread(receiveFen);
 
+    fenUpdate = true;
+
     while (!glfwWindowShouldClose(window)) {
         // delay += 1;
         // if(delay == 1000)
@@ -228,11 +242,16 @@ int main() {
         glClear(GL_COLOR_BUFFER_BIT);
 
         {
-            std::lock_guard<std::mutex> lock(fenMutex);
-            // std::cout<<"Current FEN : "<<currentFen<<std::endl;
-            renderer.updateBoard(currentFen);
-            float score = std::stof(currentScore);
-            renderer.UpdateVertices(score);
+            if(fenUpdate) {
+                std::lock_guard<std::mutex> lock(fenMutex);
+                // std::cout<<"Current FEN : "<<currentFen<<std::endl;
+                renderer.updateBoard(currentFen);
+                // float score = std::stof(currentScore);
+                printf("score = %f",currentScore);
+                renderer.UpdateVertices(currentScore);
+                fenUpdate = false;
+            }
+            
         }
 
         shader.use();

@@ -16,9 +16,17 @@ from lc2fen.predict_board import (
     predict_board_with_piece_detection
 )
 
+
+def preprocess_input2(x):
+    """Preprocess the input image according to AlexNet requirements."""
+    x /= 127.5
+    x -= 1.0
+    return x
+
+
 ACTIVATE_KERAS = False
-MODEL_PATH_KERAS = "data/models/ResNet152V2.keras"
-IMG_SIZE_KERAS = 224
+MODEL_PATH_KERAS = "/home/adi/LiveChess2FEN/data/models/squeezenet_epoch_73.keras"
+IMG_SIZE_KERAS = 227
 PRE_INPUT_KERAS = prein_resnet
 
 ACTIVATE_ONNX = False
