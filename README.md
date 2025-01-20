@@ -1,3 +1,7 @@
+# ChessVision
+
+![](images/team-14.gif)
+
 **University of Pennsylvania, CIS 5650: GPU Programming and Architecture,
 ChessVision**
 
@@ -8,8 +12,6 @@ ChessVision**
 ## Hardware Specifications
 
 ![](images/hardware_specs.png)
-
-# ChessVision
 
 ## Project Overview 
 
